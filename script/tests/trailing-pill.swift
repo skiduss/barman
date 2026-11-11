@@ -1,18 +1,18 @@
 //
 //  trailing-pill.swift
-//  Ice
+//  BarMan
 //
 
 // Executes the split shape's trailing-pill measurement helpers from the current
 // source: the toggle stale-scan rule, the status-frame filter, and the listed
 // leading edge over an in-memory Accessibility tree.
-// No UI actions, privacy grants, or running Ice app are needed.
+// No UI actions, privacy grants, or running BarMan app are needed.
 import Foundation
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().path
-var discovery = try String(contentsOfFile: repo + "/Ice/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
-let overlay = try String(contentsOfFile: repo + "/Ice/MenuBar/Appearance/MenuBarOverlayPanel.swift", encoding: .utf8)
+var discovery = try String(contentsOfFile: repo + "/BarMan/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
+let overlay = try String(contentsOfFile: repo + "/BarMan/MenuBar/Appearance/MenuBarOverlayPanel.swift", encoding: .utf8)
 // Replace only the OS boundary; the item walk stays production code.
 for name in ["AXUIElement", "NSRunningApplication", "AXIsProcessTrusted", "AXUIElementGetTypeID",
              "AXUIElementCreateApplication", "AXUIElementSetMessagingTimeout",
@@ -125,7 +125,7 @@ applications = [
     3: app([item(1800)]),
     // An app whose item is parked offscreen.
     4: app([item(1300, y: 986)]),
-    // Ice: the expanded spacer is ignored, the Ice icon counts.
+    // BarMan: the expanded spacer is ignored, the BarMan icon counts.
     ownPID: app([item(860, 600), item(1487)]),
     // An app the concealer hides: still reports its old frame.
     5: app([item(1200)]),
@@ -133,7 +133,7 @@ applications = [
 let visiblePIDs: [pid_t] = [1, 2, 3, 4, ownPID]
 expect("listing finds the leftmost drawn icon", Overlay.listedLeadingEdge(pids: visiblePIDs, displayBounds: display)?.x == 1487)
 expect("listing reports the tallest icon", Overlay.listedLeadingEdge(pids: visiblePIDs, displayBounds: display)?.maxHeight == 22)
-expect("listing without Ice still ignores the other display and offscreen items",
+expect("listing without BarMan still ignores the other display and offscreen items",
        Overlay.listedLeadingEdge(pids: [1, 2, 3, 4], displayBounds: display)?.x == 1510)
 expect("a concealed app passed in would widen the pill (callers must leave it out)",
        Overlay.listedLeadingEdge(pids: visiblePIDs + [5], displayBounds: display)?.x == 1200)

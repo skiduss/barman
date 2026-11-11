@@ -21,8 +21,8 @@ elif [ -n "${MARKETING_VERSION:-}" ] || [ -n "${CURRENT_PROJECT_VERSION:-}" ]; t
     [ -n "${CURRENT_PROJECT_VERSION:-}" ] && VERSION_ARGS+=(CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION")
 fi
 
-IDENTITY="${ICE_CODE_SIGN_IDENTITY:-Ice Dev}"
-DEV_APP="${ICE_DEV_APP:-/Applications/Ice-Dev.app}"
+IDENTITY="${BARMAN_CODE_SIGN_IDENTITY:-BarMan Dev}"
+DEV_APP="${BARMAN_DEV_APP:-/Applications/BarMan-Dev.app}"
 DEST="platform=macOS,arch=arm64"
 
 SIGN_ARGS=()
@@ -34,21 +34,21 @@ else
     echo "⚠️  No \"$IDENTITY\" cert found — falling back to an ad-hoc build (macOS will ask for permissions again)."
     echo "   One-time setup: Keychain Access > Certificate Assistant > Create a Certificate…"
     echo "   Name: $IDENTITY | Identity Type: Self Signed Root | Certificate Type: Code Signing"
-    echo "   Then re-run this script, or force ad-hoc: ICE_CODE_SIGN_IDENTITY=- ./script/dev.sh"
+    echo "   Then re-run this script, or force ad-hoc: BARMAN_CODE_SIGN_IDENTITY=- ./script/dev.sh"
     SIGN_ARGS=(CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=)
 fi
 
 echo "→ Building Debug (sign: ${IDENTITY})…"
-xcodebuild -project Ice.xcodeproj -scheme Ice -configuration Debug \
+xcodebuild -project BarMan.xcodeproj -scheme BarMan -configuration Debug \
     -destination "$DEST" "${SIGN_ARGS[@]}" "${VERSION_ARGS[@]}" build
 
-APP_DIR=$(xcodebuild -project Ice.xcodeproj -scheme Ice -configuration Debug \
+APP_DIR=$(xcodebuild -project BarMan.xcodeproj -scheme BarMan -configuration Debug \
     -destination "$DEST" "${VERSION_ARGS[@]}" -showBuildSettings 2>/dev/null | sed -n 's/^ *BUILT_PRODUCTS_DIR *= *//p' | head -1)
-SRC_APP="$APP_DIR/Ice.app"
+SRC_APP="$APP_DIR/BarMan.app"
 [ -d "$SRC_APP" ] || { echo "❌ Not found: $SRC_APP"; exit 1; }
 
 echo "→ Killing old build…"
-pkill -x Ice 2>/dev/null || true
+pkill -x BarMan 2>/dev/null || true
 sleep 1
 
 echo "→ Copying to $DEV_APP (fixed path = keeps permissions)…"
@@ -67,11 +67,11 @@ echo "→ Built version: $BUILT_VERSION ($BUILT_BUILD)"
 echo "→ Opening new build…"
 open "$DEV_APP"
 sleep 2
-if ICE_PID=$(pgrep -x Ice); then
-    echo "✅ App is running (PID $ICE_PID). Ice is a menu-bar app: look for its menu bar icon, it has no Dock icon."
-    echo "   Live logs: log stream --predicate 'process == \"Ice\"' --level debug"
+if BARMAN_PID=$(pgrep -x BarMan); then
+    echo "✅ App is running (PID $BARMAN_PID). BarMan is a menu-bar app: look for its menu bar icon, it has no Dock icon."
+    echo "   Live logs: log stream --predicate 'process == \"BarMan\"' --level debug"
 else
-    echo "❌ App launched then quit — newest crash log: ls -t ~/Library/Logs/DiagnosticReports/Ice-*.ips | head -1"
+    echo "❌ App launched then quit — newest crash log: ls -t ~/Library/Logs/DiagnosticReports/BarMan-*.ips | head -1"
     exit 1
 fi
 

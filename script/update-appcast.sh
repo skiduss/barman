@@ -1,5 +1,5 @@
 #!/bin/bash
-# Step 2: fetch Ice.zip from the GitHub Release and publish ice/appcast.xml in cavaldos/macos-app-releases.
+# Step 2: fetch BarMan.zip from the GitHub Release and publish barman/appcast.xml in skiduss/macos-app-releases.
 # Without this, installed apps never see the update (SUFeedURL has no new entry).
 # Usage: ./script/update-appcast.sh vX.Y.Z [--key <private-key.pem>]
 # Env:   SPARKLE_PRIVATE_KEY=path/to/key.pem (matches SUPublicEDKey in Info.plist, never commit it).
@@ -9,12 +9,12 @@
 set -e
 cd "$(dirname "$0")/.."
 
-RELEASES_REPO="cavaldos/macos-app-releases"
-APPCAST="ice/appcast.xml"
-FEED_URL="https://cavaldos.github.io/macos-app-releases/$APPCAST"
-# Ice v0.11.35 and older still read their feed from cavaldos/ice-releases, so mirror the appcast
-# there until most users have updated. Set to "" before deleting that repo.
-LEGACY_REPO="cavaldos/ice-releases"
+RELEASES_REPO="skiduss/macos-app-releases"
+APPCAST="barman/appcast.xml"
+FEED_URL="https://skiduss.github.io/macos-app-releases/$APPCAST"
+# BarMan has no legacy feed to mirror. Set to "owner/repo" only if an older
+# feed must keep receiving the appcast.
+LEGACY_REPO=""
 
 TAG=""; KEY="${SPARKLE_PRIVATE_KEY:-}"
 while [ $# -gt 0 ]; do
@@ -34,7 +34,7 @@ command -v generate_appcast >/dev/null || { echo "missing generate_appcast — d
 [ -z "$KEY" ] || [ -f "$KEY" ] || { echo "private key not found: '$KEY'"; exit 1; }
 # --ed-key-file, not -f: -f is for legacy DSA keys and rejects the EdDSA key.
 [ -n "$KEY" ] && KEY_ARG=(--ed-key-file "$KEY") || KEY_ARG=()
-PREFIX="${DOWNLOAD_URL_PREFIX:-https://github.com/cavaldos/Ice/releases/download/$TAG/}"
+PREFIX="${DOWNLOAD_URL_PREFIX:-https://github.com/skiduss/barman/releases/download/$TAG/}"
 GIT_NAME="$(git config user.name || echo github-actions[bot])"
 GIT_EMAIL="$(git config user.email || echo github-actions[bot]@users.noreply.github.com)"
 
@@ -56,7 +56,7 @@ publish() {
     echo "(nothing new to push in $1)"
     return
   fi
-  git -C "$1" -c user.name="$GIT_NAME" -c user.email="$GIT_EMAIL" commit -m "appcast: Ice $TAG" >/dev/null
+  git -C "$1" -c user.name="$GIT_NAME" -c user.email="$GIT_EMAIL" commit -m "appcast: BarMan $TAG" >/dev/null
   for attempt in 1 2 3 4 5; do
     git -C "$1" push origin HEAD && return
     [ "$attempt" -eq 5 ] && { echo "push from $1 failed"; exit 1; }
@@ -71,7 +71,7 @@ mkdir "$WORK/archives"
 clone "$RELEASES_REPO" "$WORK/releases" "${RELEASES_SSH:-}"
 # Keep history: generate_appcast preserves entries from the old xml in the same folder.
 [ -f "$WORK/releases/$APPCAST" ] && cp "$WORK/releases/$APPCAST" "$WORK/archives/appcast.xml"
-gh release download "$TAG" -R cavaldos/Ice -p 'Ice.zip' -D "$WORK/archives"
+gh release download "$TAG" -R skiduss/barman -p 'BarMan.zip' -D "$WORK/archives"
 
 generate_appcast "${KEY_ARG[@]}" --download-url-prefix "$PREFIX" "$WORK/archives"
 mkdir -p "$(dirname "$WORK/releases/$APPCAST")"

@@ -1,6 +1,6 @@
 //
 //  ax-row-filter.swift
-//  Ice
+//  BarMan
 //
 
 // Exercises the actual AX row scan and shared classifier with controlled discovery geometry.
@@ -8,8 +8,8 @@ import Foundation
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().path
-let source = try String(contentsOfFile: repo + "/Ice/UI/IceBar/IceBar.swift", encoding: .utf8)
-let discovery = try String(contentsOfFile: repo + "/Ice/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
+let source = try String(contentsOfFile: repo + "/BarMan/UI/BarManPill/BarManPill.swift", encoding: .utf8)
+let discovery = try String(contentsOfFile: repo + "/BarMan/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
 func method(_ signature: String, in source: String) -> String {
     let start = source.range(of: signature)!.lowerBound
     let end = source.range(of: "\n    }\n", range: start..<source.endIndex)!.upperBound
@@ -78,7 +78,7 @@ enum MenuBarOverlayPanelContentView {
     static func currentTrailingVisibleWidth(for displayID: Int) -> CGFloat? { width }
 }
 struct Logger {
-    static let iceBar = Logger()
+    static let barManPill = Logger()
     func info(_ message: String) {}
 }
 @MainActor final class Content {

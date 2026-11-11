@@ -13,7 +13,7 @@ Please also read [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md). By participating, 
 ## Quick start
 
 ```bash
-git clone https://github.com/cavaldos/Ice.git
+git clone https://github.com/skiduss/barman.git
 cd Ice
 
 # Build Debug and launch the app
@@ -52,7 +52,7 @@ Other helpers live in [script/README.md](../script/README.md):
 
 ## How to contribute
 
-1. Check existing [issues](https://github.com/cavaldos/Ice/issues) — bug reports and feature requests have templates, please use them.
+1. Check existing [issues](https://github.com/skiduss/barman/issues) — bug reports and feature requests have templates, please use them.
 2. Fork the repo and create a branch: `feat/short-name` or `fix/short-name`.
 3. Make your change and verify:
    ```bash

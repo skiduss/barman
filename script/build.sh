@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Ice Build Script
+# BarMan Build Script
 # This script builds the app and creates a DMG file in the release folder
 
 set -e
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 RELEASE_DIR="$PROJECT_DIR/release"
-APP_NAME="Ice"
+APP_NAME="BarMan"
 DMG_NAME="$APP_NAME.dmg"
 DESTINATION="platform=macOS,arch=arm64"
 # Ad-hoc sign: repo pins team K2ATHQPJDP which you don't have cert for
@@ -47,7 +47,7 @@ if [ $# -ge 1 ]; then
 fi
 
 echo -e "${YELLOW}========================================${NC}"
-echo -e "${YELLOW}   Ice Build Script${NC}"
+echo -e "${YELLOW}   BarMan Build Script${NC}"
 echo -e "${YELLOW}========================================${NC}"
 echo ""
 
@@ -94,10 +94,10 @@ echo -e "${GREEN}Found app at: $APP_PATH${NC}"
 # Step 4: Re-sign (fixes dyld "different Team IDs" crash on Sparkle.framework).
 # Use the release certificate when it is in the keychain so local builds keep
 # their permissions across updates like CI builds (script/create-release-cert.sh).
-IDENTITY="${ICE_RELEASE_IDENTITY:-Ice Release}"
+IDENTITY="${BARMAN_RELEASE_IDENTITY:-BarMan Release}"
 if [ "$IDENTITY" != "-" ] && ! security find-certificate -c "$IDENTITY" >/dev/null 2>&1; then
     echo -e "${YELLOW}No \"$IDENTITY\" cert in keychain — signing ad-hoc (macOS will ask for permissions again).${NC}"
-    echo -e "${YELLOW}Import it with: ./script/create-release-cert.sh --import (or security import ~/.ice-signing/ice-release.p12)${NC}"
+    echo -e "${YELLOW}Import it with: ./script/create-release-cert.sh --import (or security import ~/.barman-signing/barman-release.p12)${NC}"
     IDENTITY="-"
 fi
 echo -e "${YELLOW}[4/5] Re-signing app ($IDENTITY)...${NC}"

@@ -6,7 +6,7 @@
 # app's designated requirement. Ad-hoc builds pin a cdhash that changes on
 # every build, so each update looked like a new app and lost its grants.
 # Signed with one stable certificate, the requirement becomes
-# "identifier com.jordanbaird.Ice and certificate root = <this cert>", which
+# "identifier com.skidus.barman and certificate root = <this cert>", which
 # stays the same across releases — users grant permissions once.
 #
 # Keep the .p12 and its password safe (password manager / offline backup).
@@ -17,11 +17,11 @@
 #   --force   overwrite an existing certificate (users will re-grant once)
 set -e
 
-NAME="Ice Release"
-OUT_DIR="${ICE_SIGNING_DIR:-$HOME/.ice-signing}"
-P12="$OUT_DIR/ice-release.p12"
-PASS_FILE="$OUT_DIR/ice-release.password"
-REPO="cavaldos/Ice"
+NAME="BarMan Release"
+OUT_DIR="${ICE_SIGNING_DIR:-$HOME/.barman-signing}"
+P12="$OUT_DIR/barman-release.p12"
+PASS_FILE="$OUT_DIR/barman-release.password"
+REPO="skiduss/barman"
 # The system LibreSSL writes PKCS#12 files that `security import` accepts;
 # Homebrew OpenSSL 3 defaults to algorithms macOS cannot read.
 OPENSSL=/usr/bin/openssl

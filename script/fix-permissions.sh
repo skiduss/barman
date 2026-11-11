@@ -1,6 +1,6 @@
 #!/bin/bash
 # Re-grant Accessibility / Screen Recording after installing an update.
-# Usage: ./script/fix-permissions.sh [/path/to/Ice.app]
+# Usage: ./script/fix-permissions.sh [/path/to/BarMan.app]
 #
 # Release builds are ad-hoc signed, so the app's designated requirement is a
 # pinned cdhash rather than a stable Developer ID. Every build has a different
@@ -9,28 +9,28 @@
 # Dropping the stale rows lets the next grant bind to the new signature.
 set -e
 
-APP="${1:-/Applications/Ice.app}"
-BUNDLE_ID="com.jordanbaird.Ice"
+APP="${1:-/Applications/BarMan.app}"
+BUNDLE_ID="com.skidus.barman"
 
 if [[ ! -d "$APP" ]]; then
   echo "not found: $APP"
-  echo "usage: $0 [/path/to/Ice.app]"
+  echo "usage: $0 [/path/to/BarMan.app]"
   exit 1
 fi
 
-echo "Ice: $APP"
+echo "BarMan: $APP"
 codesign -dvvv "$APP" 2>&1 | grep -E 'CDHash=|flags=' | sed 's/^/  /' || true
 echo
 
 # tccd caches authorization for a running process, so quit before resetting —
-# otherwise Ice stays half-denied until the next launch anyway. Match the
+# otherwise BarMan stays half-denied until the next launch anyway. Match the
 # executable name rather than the bundle path: it is path-independent and never
 # treats the path as a regex (same form as script/run.sh).
-if pgrep -x Ice >/dev/null 2>&1; then
-  echo "quitting Ice"
-  osascript -e 'quit app "Ice"' 2>/dev/null || true
+if pgrep -x BarMan >/dev/null 2>&1; then
+  echo "quitting BarMan"
+  osascript -e 'quit app "BarMan"' 2>/dev/null || true
   sleep 2
-  pkill -x Ice 2>/dev/null || true
+  pkill -x BarMan 2>/dev/null || true
   sleep 1
 fi
 
@@ -53,18 +53,18 @@ for SERVICE in Accessibility ScreenCapture ListenEvent PostEvent; do
 done
 
 echo
-echo "relaunching Ice"
+echo "relaunching BarMan"
 open "$APP"
 sleep 3
-pgrep -x Ice >/dev/null 2>&1 || echo "warning: Ice did not start"
+pgrep -x BarMan >/dev/null 2>&1 || echo "warning: BarMan did not start"
 
 cat <<'EOF'
 
 Now re-grant in System Settings > Privacy & Security:
   Accessibility      hiding and moving menu bar items
-  Screen Recording   menu bar item images, Ice Bar
+  Screen Recording   menu bar item images, BarMan Pill
 
-If a greyed-out Ice entry is still listed, select it, press "-", then let Ice
+If a greyed-out BarMan entry is still listed, select it, press "-", then let BarMan
 prompt again.
 EOF
 

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>SUFeedURL</key>
+	<string>https://skiduss.github.io/macos-app-releases/barman/appcast.xml</string>
+	<!-- TODO: replace with a BarMan EdDSA public key before publishing an appcast. -->
+	<key>SUPublicEDKey</key>
+	<string>5giXQMfuJxsXCpuCn1XxL2IFkBoSiNMiP4rNwAanT7A=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+</dict>
+</plist>

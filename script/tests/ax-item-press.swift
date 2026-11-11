@@ -1,15 +1,15 @@
 //
 //  ax-item-press.swift
-//  Ice
+//  BarMan
 //
 
 // Executes production AX discovery/press logic against an in-memory Accessibility tree.
-// No UI actions, privacy grants, or running Ice app are needed.
+// No UI actions, privacy grants, or running BarMan app are needed.
 import Foundation
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().path
-var source = try String(contentsOfFile: repo + "/Ice/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
+var source = try String(contentsOfFile: repo + "/BarMan/MenuBar/MenuBarItems/MenuBarItemAXDiscovery.swift", encoding: .utf8)
 // Replace only the OS boundary; discovery, item identity, and press selection remain production code.
 for name in ["AXUIElement", "NSRunningApplication", "AXIsProcessTrusted", "AXUIElementGetTypeID",
              "AXUIElementCreateApplication", "AXUIElementSetMessagingTimeout",

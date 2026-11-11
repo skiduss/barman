@@ -1,21 +1,21 @@
 //
 //  ax-activation.swift
-//  Ice
+//  BarMan
 //
 
-// Exercises the actual Ice Bar click handler and activation lifecycle with a controlled menu server.
+// Exercises the actual BarMan Pill click handler and activation lifecycle with a controlled menu server.
 import Foundation
 
 let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
     .deletingLastPathComponent().deletingLastPathComponent().path
-let source = try String(contentsOfFile: repo + "/Ice/UI/IceBar/IceBar.swift", encoding: .utf8)
+let source = try String(contentsOfFile: repo + "/BarMan/UI/BarManPill/BarManPill.swift", encoding: .utf8)
 let rowStart = source.range(of: "    private func press(_ row: AXRowItem)")!.lowerBound
-let rowEnd = source.range(of: "\n}\n\n// MARK: - IceBarItemView", range: rowStart..<source.endIndex)!.lowerBound
+let rowEnd = source.range(of: "\n}\n\n// MARK: - BarManPillItemView", range: rowStart..<source.endIndex)!.lowerBound
 let rowMethod = String(source[rowStart..<rowEnd]).replacingOccurrences(of: "private func", with: "func")
 let activationStart = source.range(of: "    func activateAXItem(")!.lowerBound
 let activationEnd = source.range(of: "\n    }\n", range: activationStart..<source.endIndex)!.upperBound
 let activationMethod = String(source[activationStart..<activationEnd])
-let sectionSource = try String(contentsOfFile: repo + "/Ice/MenuBar/MenuBarSection.swift", encoding: .utf8)
+let sectionSource = try String(contentsOfFile: repo + "/BarMan/MenuBar/MenuBarSection.swift", encoding: .utf8)
 let hideStart = sectionSource.range(of: "    func hide(persistState:")!.lowerBound
 let hideEnd = sectionSource.range(of: "\n    }\n", range: hideStart..<sectionSource.endIndex)!.upperBound
 let hideMethod = "    @MainActor\n" + String(sectionSource[hideStart..<hideEnd])
@@ -31,7 +31,7 @@ let startRehideMethod = sectionMethod("    func startRehideChecks()")
 let stopRehideMethod = sectionMethod("    private func stopRehideChecks()")
 let showMethod = sectionMethod("    func show(")
 let isHiddenProperty = sectionMethod("    var isHidden: Bool")
-let eventSource = try String(contentsOfFile: repo + "/Ice/Events/EventManager.swift", encoding: .utf8)
+let eventSource = try String(contentsOfFile: repo + "/BarMan/Events/EventManager.swift", encoding: .utf8)
 func eventMethod(_ signature: String) -> String {
     let start = eventSource.range(of: signature)!.lowerBound
     let end = eventSource.range(of: "\n    }\n", range: start..<eventSource.endIndex)!.upperBound
@@ -87,9 +87,9 @@ final class MenuBarSection {
     let name: Name
     init(name: Name) { self.name = name }
     weak var appState: AppState?
-    var iceBarPanel: IceBarPanel? { appState?.menuBarManager.iceBarPanel }
-    var useIceBar = true
-    var screenForIceBar: TestScreen? { .main }
+    var barManPillPanel: BarManPillPanel? { appState?.menuBarManager.barManPillPanel }
+    var useBarManPill = true
+    var screenForBarManPill: TestScreen? { .main }
     let controlItem = ControlItem()
     var stateRevision = 0
     var isEnabled = true
@@ -116,7 +116,8 @@ final class MenuBarSection {
 }
 final class MenuBarManager {
     let sections = MenuBarSection.Name.allCases.map { MenuBarSection(name: $0) }
-    var iceBarPanel: IceBarPanel!
+    var barManPillPanel: BarManPillPanel!
+    var isLayoutEditing = false
     func section(withName name: MenuBarSection.Name) -> MenuBarSection? { sections.first { $0.name == name } }
 }
 final class AppState {
@@ -134,14 +135,14 @@ struct ScrollEvent { let scrollingDeltaX: CGFloat; let scrollingDeltaY: CGFloat 
     static let scrollThrottleInterval: TimeInterval = 0.05
     var isMouseInsideEmptyMenuBarSpace = false
     var isMouseInsideMenuBar = false
-    var mouseInsideIceBar = false
+    var mouseInsideBarManPill = false
     var outsideChecks = 0
-    var isMouseInsideIceBar: Bool { outsideChecks += 1; return mouseInsideIceBar }
+    var isMouseInsideBarManPill: Bool { outsideChecks += 1; return mouseInsideBarManPill }
     // PRODUCTION_HOVER
     // PRODUCTION_SCROLL
 }
 struct Logger {
-    static let iceBar = Logger()
+    static let barManPill = Logger()
     static let controlItem = Logger()
     func info(_ message: String) {}
     func error(_ message: String) {}
@@ -213,7 +214,7 @@ struct WindowInfo {
     var isMenuBarItem: Bool { layer == kCGStatusWindowLevel }
     static func getOnScreenWindows() -> [WindowInfo] { server.windows() }
 }
-@MainActor final class IceBarPanel {
+@MainActor final class BarManPillPanel {
     var appState: AppState?
     var axActivationTask: Task<Void, Never>?
     private var activating = false
@@ -233,7 +234,7 @@ struct AXRowItem { var item = MenuBarItemAXDiscovery.AXMenuBarItem() }
 @MainActor final class Content {
     let menuBarManager: MenuBarManager
     init(_ manager: MenuBarManager) { menuBarManager = manager }
-    func closePanel() { menuBarManager.iceBarPanel.close() }
+    func closePanel() { menuBarManager.barManPillPanel.close() }
 """#
 let tests = #"""
 }
@@ -256,7 +257,7 @@ let tests = #"""
 @MainActor func menuObserved() async {
     await until("popup observation") { server.snapshot.menuReads >= 2 }
 }
-@MainActor func finish(_ panel: IceBarPanel) async {
+@MainActor func finish(_ panel: BarManPillPanel) async {
     server.update { $0.menuOpen = false; $0.submenuOpen = false }
     let result = completion(of: panel.axActivationTask)
     await until("activation cleanup") { result.done }
@@ -267,11 +268,11 @@ let tests = #"""
         print("\(condition ? "PASS" : "FAIL"): \(name)")
         if !condition { failures += 1 }
     }
-    func setup() -> (AppState, IceBarPanel, Content) {
+    func setup() -> (AppState, BarManPillPanel, Content) {
         let app = AppState()
-        let panel = IceBarPanel()
+        let panel = BarManPillPanel()
         panel.appState = app
-        app.menuBarManager.iceBarPanel = panel
+        app.menuBarManager.barManPillPanel = panel
         for section in app.menuBarManager.sections { section.appState = app }
         server.update { $0 = MenuServer.State() }
         return (app, panel, Content(app.menuBarManager))
@@ -282,7 +283,7 @@ let tests = #"""
     await menuObserved()
     expect("original items are visible before AXPress", server.snapshot.visibleAtPress == [true])
     expect("the opened menu stays visible", server.snapshot.menuOpen)
-    expect("the Ice Bar closes before activation", panel.closed)
+    expect("the BarMan Pill closes before activation", panel.closed)
     await finish(panel)
     expect("previously hidden section is restored", app.menuBarManager.sections[1].controlItem.state == .hideItems)
     expect("previously visible section stays visible", app.menuBarManager.sections[0].controlItem.state == .showItems)
@@ -383,7 +384,7 @@ let tests = #"""
     expect("hover exit outside activation hides transiently", idleApp.menuBarManager.sections.allSatisfy { $0.controlItem.state == .hideItems && $0.persistedWrites == 0 })
 
     let (nativeApp, _, _) = setup()
-    for section in nativeApp.menuBarManager.sections { section.useIceBar = false }
+    for section in nativeApp.menuBarManager.sections { section.useBarManPill = false }
     let nativeHover = EventManager()
     nativeHover.appState = nativeApp
     nativeHover.isMouseInsideEmptyMenuBarSpace = true
@@ -400,7 +401,7 @@ let tests = #"""
 
     for name in MenuBarSection.Name.allCases {
         let (showApp, _, _) = setup()
-        for section in showApp.menuBarManager.sections { section.useIceBar = false }
+        for section in showApp.menuBarManager.sections { section.useBarManPill = false }
         showApp.menuBarManager.section(withName: name)?.show()
         let expectedNames: Set<MenuBarSection.Name> = name == .alwaysHidden ? [.visible, .hidden, .alwaysHidden] : [.visible, .hidden]
         expect("explicit native \(name) show still persists", showApp.menuBarManager.sections.allSatisfy {
@@ -410,7 +411,7 @@ let tests = #"""
     }
 
     let (scrollShowApp, _, _) = setup()
-    for section in scrollShowApp.menuBarManager.sections { section.useIceBar = false }
+    for section in scrollShowApp.menuBarManager.sections { section.useBarManPill = false }
     let scrollShow = EventManager()
     scrollShow.appState = scrollShowApp
     scrollShow.isMouseInsideMenuBar = true
@@ -421,10 +422,10 @@ let tests = #"""
     for section in insideApp.menuBarManager.sections { section.setState(.showItems, persist: false) }
     let insideHover = EventManager()
     insideHover.appState = insideApp
-    insideHover.mouseInsideIceBar = true
+    insideHover.mouseInsideBarManPill = true
     insideHover.handleShowOnHover()
-    await until("hover inside Ice Bar") { insideHover.outsideChecks > 0 }
-    expect("hovering inside Ice Bar does not hide items", insideApp.menuBarManager.sections.allSatisfy { $0.controlItem.state == .showItems })
+    await until("hover inside BarMan Pill") { insideHover.outsideChecks > 0 }
+    expect("hovering inside BarMan Pill does not hide items", insideApp.menuBarManager.sections.allSatisfy { $0.controlItem.state == .showItems })
 
     let (scrollApp, scrollPanel, scrollContent) = setup()
     scrollContent.press(AXRowItem())

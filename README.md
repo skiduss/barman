@@ -1,34 +1,31 @@
 <div align="center">
-    <img src="Ice/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width=200 height=200>
-    <h1>Ice — Free & Open-Source Menu Bar Manager for macOS</h1>
+    <img src="BarMan/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width=200 height=200>
+    <h1>BarMan — Free & Open-Source Menu Bar Manager for macOS</h1>
     <p>Hide and organize menu bar icons on your Mac. The best <strong>free Bartender alternative</strong> — also a great <strong>Hidden Bar</strong> and <strong>Vanilla alternative</strong> — focused on stability and a smooth, distraction-free experience.<br>✅ <strong>Fully supports macOS 27</strong></p>
 </div>
 
-![Ice menu bar manager for macOS — hide and organize menu bar icons](./Resources/Image/banner.png)
+![BarMan menu bar manager for macOS — hide and organize menu bar icons](./Resources/Image/banner.png)
 
 <div align="center">
 
-[![Download](https://img.shields.io/badge/download-latest-brightgreen?style=flat-square)](https://github.com/cavaldos/Ice/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/cavaldos/Ice/total?style=flat-square)](https://github.com/cavaldos/Ice/releases)
+[![Download](https://img.shields.io/badge/download-latest-brightgreen?style=flat-square)](https://github.com/skiduss/barman/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/skiduss/barman/total?style=flat-square)](https://github.com/skiduss/barman/releases)
 ![Platform](https://img.shields.io/badge/platform-macOS-blue?style=flat-square)
 ![Requirements](https://img.shields.io/badge/requirements-macOS%2014%2B-fa4e49?style=flat-square)
 ![macOS 27](https://img.shields.io/badge/macOS_27-fully_supported-brightgreen?style=flat-square)
-[![GitHub stars](https://img.shields.io/github/stars/cavaldos/Ice?style=flat-square)](https://github.com/cavaldos/Ice/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/cavaldos/Ice?style=flat-square)](https://github.com/cavaldos/Ice/network/members)
-[![Website](https://img.shields.io/badge/Website-015FBA?style=flat-square)](https://icemenubar.app)
-[![License](https://img.shields.io/github/license/cavaldos/Ice?style=flat-square)](LICENSE)
-[![Sponsor](https://img.shields.io/badge/Sponsor%20%E2%9D%A4%EF%B8%8F-8A2BE2?style=flat-square)](https://ko-fi.com/calvados)
+[![GitHub stars](https://img.shields.io/github/stars/skiduss/barman?style=flat-square)](https://github.com/skiduss/barman/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/skiduss/barman?style=flat-square)](https://github.com/skiduss/barman/network/members)
+[![Website](https://img.shields.io/badge/Website-015FBA?style=flat-square)](https://skidus.dev)
+[![License](https://img.shields.io/github/license/skiduss/barman?style=flat-square)](LICENSE)
 
 <br>
 
-<a href="https://ko-fi.com/calvados" target="_blank">
-    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" alt="Support me on Ko-fi" style="height: 60px !important;width: 217px !important;">
 </a>
 
 </div>
 
 > [!NOTE]
-> Ice is in active development. Grab the latest build from the [releases page](https://github.com/cavaldos/Ice/releases/latest).
+> BarMan is in active development. Grab the latest build from the [releases page](https://github.com/skiduss/barman/releases/latest).
 
 > [!TIP]
 > ✅ **Fully supports macOS 27** — tested and ready for the latest macOS, all the way back to macOS 14 Sonoma.
@@ -38,64 +35,64 @@
 **Homebrew** (recommended — updates with `brew upgrade`):
 
 ```bash
-brew tap cavaldos/tap
-brew install cavaldos/tap/ice
+brew tap skiduss/tap
+brew install skiduss/tap/barman
 ```
 
 **Manual:**
 
-1. Download `Ice.zip` from the [latest release](https://github.com/cavaldos/Ice/releases/latest).
-2. Unzip it and move `Ice.app` into `/Applications`.
+1. Download `BarMan.zip` from the [latest release](https://github.com/skiduss/barman/releases/latest).
+2. Unzip it and move `BarMan.app` into `/Applications`.
 3. Clear the quarantine flag — releases are self-signed and not notarized, so Gatekeeper would otherwise block the first launch:
 
 ```bash
-xattr -d com.apple.quarantine /Applications/Ice.app
+xattr -d com.apple.quarantine /Applications/BarMan.app
 ```
 
-Then open Ice and grant **Accessibility** and **Screen Recording** in System Settings (see [Permissions](#permissions)).
+Then open BarMan and grant **Accessibility** and **Screen Recording** in System Settings (see [Permissions](#permissions)).
 
 For local development, see [script/README.md](script/README.md).
 
 ## Permissions
 
-Ice needs **Accessibility** and **Screen Recording** (System Settings → Privacy & Security). Grant them once: every release is signed with the same certificate, so updates keep them.
+BarMan needs **Accessibility** and **Screen Recording** (System Settings → Privacy & Security). Grant them once: every release is signed with the same certificate, so updates keep them.
 
-If you are updating from a release older than the switch to the stable certificate, grant them one last time. If a toggle shows on but Ice still asks, run `./script/fix-permissions.sh`, or remove Ice from both lists and add it again.
+If you are updating from a release older than the switch to the stable certificate, grant them one last time. If a toggle shows on but BarMan still asks, run `./script/fix-permissions.sh`, or remove BarMan from both lists and add it again.
 
 ## Uninstall
 
 **Homebrew:**
 
 ```bash
-brew uninstall --cask cavaldos/tap/ice
+brew uninstall --cask skiduss/tap/barman
 ```
 
 
 ```bash
-brew uninstall --cask --zap cavaldos/tap/ice
+brew uninstall --cask --zap skiduss/tap/barman
 ```
 
-**Manual:** quit Ice, then drag `Ice.app` out of `/Applications` to the Trash. To also remove preferences, delete `~/Library/Preferences/com.jordanbaird.Ice.plist`.
+**Manual:** quit BarMan, then drag `BarMan.app` out of `/Applications` to the Trash. To also remove preferences, delete `~/Library/Preferences/com.skidus.barman.plist`.
 
 
 ## Gallery
 
 **Always-Hidden section demo — hide menu bar icons and reveal on hover**
 
-![Demo of Ice always-hidden menu bar section on macOS](Resources/vid/demo-ah.gif)
+![Demo of BarMan always-hidden menu bar section on macOS](Resources/vid/demo-ah.gif)
 
 **Show and hide menu bar icons demo**
 
-![Demo showing and hiding Mac menu bar icons with Ice](Resources/vid/demo.gif)
+![Demo showing and hiding Mac menu bar icons with BarMan](Resources/vid/demo.gif)
 
 **Fullscreen settings**
 
-![Ice fullscreen settings window on macOS](Resources/Image/fullscreen.png)
+![BarMan fullscreen settings window on macOS](Resources/Image/fullscreen.png)
 
 
-| Ice Bar — second menu bar for notched MacBooks                                                   | Drag-and-drop menu bar layout                                                                   |
+| BarMan Pill — second menu bar for notched MacBooks                                                   | Drag-and-drop menu bar layout                                                                   |
 | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| ![Ice Bar second menu bar for MacBook notch](https://github.com/user-attachments/assets/f1429589-6186-4e1b-8aef-592219d49b9b) | ![Drag and drop menu bar layout editor](./Resources/Image/MenuBarLayout.png) |
+| ![BarMan Pill second menu bar for MacBook notch](https://github.com/user-attachments/assets/f1429589-6186-4e1b-8aef-592219d49b9b) | ![Drag and drop menu bar layout editor](./Resources/Image/MenuBarLayout.png) |
 
 | Menu bar appearance and theme settings                                                                  | Menu bar item spacing                                                                                       |
 | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -113,14 +110,12 @@ Contributions are welcome! Please read the [contribution guidelines](./Resources
 
 Thanks to everyone who has contributed to this fork:
 
-<a href="https://github.com/cavaldos"><img src="https://github.com/cavaldos.png?size=64" width="64" height="64" alt="cavaldos" title="cavaldos" style="border-radius:50%"></a>
+<a href="https://github.com/skiduss"><img src="https://github.com/skiduss.png?size=64" width="64" height="64" alt="skiduss" title="skiduss" style="border-radius:50%"></a>
 <a href="https://github.com/pythongod"><img src="https://github.com/pythongod.png?size=64" width="64" height="64" alt="pythongod" title="pythongod" style="border-radius:50%"></a>
 <a href="https://github.com/WuColin-1"><img src="https://github.com/WuColin-1.png?size=64" width="64" height="64" alt="WuColin-1" title="WuColin-1" style="border-radius:50%"></a>
 
 ## Support
 
-<a href="https://ko-fi.com/calvados" target="_blank">
-    <img src="https://storage.ko-fi.com/cdn/kofi5.png?v=6" alt="Support me on Ko-fi" style="height: 36px !important;width: 130px !important;">
 </a>
 
 <a href="https://www.paypal.com/paypalme/nnkhanh29" target="_blank">
@@ -133,10 +128,10 @@ A fork of [Ice](https://github.com/jordanbaird/Ice) by [Jordan Baird](https://gi
 
 ## License
 
-[GPL-3.0](LICENSE) — Ice is and will always remain open-source and free.
+[GPL-3.0](LICENSE) — BarMan is and will always remain open-source and free.
 
 ## Star History
 
-<a href="https://star-history.com/#cavaldos/Ice&Date">
-    <img src="https://api.star-history.com/svg?repos=cavaldos/Ice&type=Date" alt="Star History Chart" width="500">
+<a href="https://star-history.com/#skiduss/barman&Date">
+    <img src="https://api.star-history.com/svg?repos=skiduss/barman&type=Date" alt="Star History Chart" width="500">
 </a>
