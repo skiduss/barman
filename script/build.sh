@@ -23,15 +23,14 @@ SIGN_ARGS='CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM='
 # Parity with CI (release.yml injects these from the tag): honor exported
 # MARKETING_VERSION / CURRENT_PROJECT_VERSION so About shows the same numbers,
 # otherwise fall back to the values baked into the Xcode project.
-VERSION_ARGS=""
-if [ -n "${MARKETING_VERSION:-}" ]; then VERSION_ARGS="$VERSION_ARGS MARKETING_VERSION=$MARKETING_VERSION"; fi
-if [ -n "${CURRENT_PROJECT_VERSION:-}" ]; then VERSION_ARGS="$VERSION_ARGS CURRENT_PROJECT_VERSION=$CURRENT_PROJECT_VERSION"; fi
-
+#
 # Optional version override: ./script/build.sh v0.11.15
 # Injects MARKETING_VERSION into the build (same mechanism as CI),
 # so Settings → About shows the given version instead of the
 # hardcoded one in project.pbxproj.
 VERSION_ARGS=()
+if [ -n "${MARKETING_VERSION:-}" ]; then VERSION_ARGS+=(MARKETING_VERSION="$MARKETING_VERSION"); fi
+if [ -n "${CURRENT_PROJECT_VERSION:-}" ]; then VERSION_ARGS+=(CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"); fi
 if [ $# -ge 1 ]; then
     VERSION="${1#v}"
     if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
