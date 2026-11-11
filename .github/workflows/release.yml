@@ -38,9 +38,9 @@ jobs:
             echo "Tag '$TAG' must look like vX.Y.Z (e.g. v0.11.13)"
             exit 1
           fi
-          # Sparkle requires the build number to keep increasing and it must
-          # stay above 1117 (the last build released upstream).
-          BUILD_NUMBER=$((1117 + GITHUB_RUN_NUMBER))
+          # Sparkle requires the build number to keep increasing; it starts at
+          # 108 for BarMan, so CI builds continue upward from there.
+          BUILD_NUMBER=$((108 + GITHUB_RUN_NUMBER))
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
           echo "Building version $VERSION ($BUILD_NUMBER)"

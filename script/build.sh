@@ -37,9 +37,9 @@ if [ $# -ge 1 ]; then
         echo -e "${RED}Version '$1' must look like vX.Y.Z (e.g. ./script/build.sh v0.11.15)${NC}"
         exit 1
     fi
-    # Mirror CI (1117 + run number); locally there is no run number,
-    # so use the commit count to keep the build number increasing.
-    BUILD_NUMBER=$((1117 + $(git rev-list --count HEAD)))
+    # Mirror CI (108 + run number, reset for the BarMan rebrand); locally there
+    # is no run number, so use the commit count to keep it increasing.
+    BUILD_NUMBER=$((108 + $(git rev-list --count HEAD)))
     echo -e "${YELLOW}Version override: $VERSION ($BUILD_NUMBER)${NC}"
     echo ""
     VERSION_ARGS=(MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER")

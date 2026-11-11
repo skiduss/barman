@@ -12,8 +12,8 @@ if [ $# -ge 1 ]; then
         echo "❌ Version '$1' must look like vX.Y.Z (e.g. ./script/dev.sh v0.11.12)"
         exit 1
     fi
-    # Same as build.sh: 1117 + commit count so the build number keeps increasing.
-    BUILD_NUMBER=$((1117 + $(git rev-list --count HEAD)))
+    # Same as build.sh: 108 + commit count so the build number keeps increasing.
+    BUILD_NUMBER=$((108 + $(git rev-list --count HEAD)))
     echo "→ Version override: $VERSION ($BUILD_NUMBER)"
     VERSION_ARGS=(MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER")
 elif [ -n "${MARKETING_VERSION:-}" ] || [ -n "${CURRENT_PROJECT_VERSION:-}" ]; then
