@@ -398,6 +398,55 @@ final class MenuBarOverlayPanelContentView: NSView {
     /// instead of jumping on the TTL.
     private static var trailingBurstUntil = [CGDirectDisplayID: Date]()
 
+    /// Scans chained into the current burst, per display.
+    private static var burstScanCount = [CGDirectDisplayID: Int]()
+
+    /// How many scans one burst may chain before it stops.
+    ///
+    /// A burst exists to track a ~0.4s icon slide, which needs a handful of
+    /// sweeps. Without a cap a sweep whose measurement never changes keeps
+    /// chaining for as long as the burst window is re-armed, which on a
+    /// display whose menu bar Accessibility won't answer for meant ~20
+    /// full sweeps per second, forever (thousands of AX hit-tests and
+    /// LaunchServices lookups per second, and an AppKit assertion per hit on
+    /// one of Ice's own items).
+    private static let maxBurstScans = 8
+
+    /// Until when the fast edge check stays quiet for a display, per display.
+    ///
+    /// Set when a burst burns through ``maxBurstScans``: the probes disagree
+    /// with every sweep, so rescanning cannot heal it, and re-arming the
+    /// burst from the edge check would just restart the storm. Anything that
+    /// really changes the bar (control item moved/toggled, app launched or
+    /// quit) clears this.
+    private static var edgeCheckQuietUntil = [CGDirectDisplayID: Date]()
+
+    /// How long a display stays quiet after a burst gave up.
+    private static let edgeCheckQuietDuration: TimeInterval = 60
+
+    /// When a burst last started, per display.
+    private static var lastBurstAt = [CGDirectDisplayID: Date]()
+
+    /// Minimum gap between two bursts for the same display.
+    ///
+    /// Long enough that a display whose edge check and sweeps disagree cannot
+    /// keep a permanent rescan loop going, short enough that a real toggle
+    /// still gets its rescans (a toggle also passes through
+    /// ``noteControlItemMoved``, which arms its own burst).
+    private static let burstSpacing: TimeInterval = 5
+
+    /// Cached answer for ``listedProcessIDs()``.
+    ///
+    /// `NSWorkspace.runningApplications` costs a LaunchServices round trip per
+    /// app the first time that app's properties are read, and the list only
+    /// changes when an app launches or quits or the concealer hides one. A
+    /// rescan chain asks for it dozens of times per second, so keep the answer
+    /// for ``listedProcessIDsTTL`` and key it on the concealed set.
+    private static var listedProcessIDsCache: (concealed: Set<String>, pids: [pid_t], date: Date)?
+
+    /// How long ``listedProcessIDsCache`` is trusted.
+    private static let listedProcessIDsTTL: TimeInterval = 5
+
     /// Which sections are open. Each level shows a different set of icons,
     /// so each gets its own remembered width.
     ///
@@ -933,6 +982,9 @@ final class MenuBarOverlayPanelContentView: NSView {
         )
         .debounce(for: 0.15, scheduler: DispatchQueue.main)
         .sink { [weak self] _ in
+            // A launch/quit changes the cluster: re-check even a display whose
+            // burst gave up earlier.
+            Self.allowTrailingChecksAgain()
             self?.checkTrailingEdge()
         }
         .store(in: &c)
@@ -1327,7 +1379,8 @@ final class MenuBarOverlayPanelContentView: NSView {
             return
         }
         let display = panel.owningScreen.displayID
-        Self.trailingBurstUntil[display] = Date().addingTimeInterval(1.5)
+        Self.allowTrailingChecksAgain(for: display)
+        Self.armTrailingBurst(for: display, duration: 1.5)
         let level = revealLevel()
         let previousLevel = Self.lastRevealLevel[display]
         if let level {
@@ -1453,6 +1506,9 @@ final class MenuBarOverlayPanelContentView: NSView {
                     // the prediction and look again; once the burst ends the
                     // measurement wins regardless.
                     Logger.overlayPanel.debug("Scan dropped (stale): measured=\(width) origin=\(origin) predictive=\(predicted)")
+                    guard Self.noteBurstScan(for: display) else {
+                        return
+                    }
                     self?.refreshTrailingStatusWidth(for: display, force: true)
                     return
                 }
@@ -1470,11 +1526,14 @@ final class MenuBarOverlayPanelContentView: NSView {
                     Self.setPredictiveTarget(nil, for: display)
                 }
                 if let until = Self.trailingBurstUntil[display], Date() < until {
-                    self.refreshTrailingStatusWidth(for: display, force: true)
+                    if Self.noteBurstScan(for: display) {
+                        self.refreshTrailingStatusWidth(for: display, force: true)
+                    }
+                    // Else: the burst hit its cap. `noteBurstScan` ended it and
+                    // quieted the edge check, so the width measured above is the
+                    // last word until something really changes.
                 } else {
-                    Self.trailingBurstUntil.removeValue(forKey: display)
-                    Self.slideSettlesAt.removeValue(forKey: display)
-                    Self.toggleOriginWidth.removeValue(forKey: display)
+                    Self.endTrailingBurst(for: display)
                     // Burst settled: this is the real end position. Remember
                     // it for this level so the next toggle (and next launch)
                     // can predict instantly. Learn only from a real sweep (the
@@ -1521,11 +1580,74 @@ final class MenuBarOverlayPanelContentView: NSView {
     /// Read here, on the main thread, where both lists live.
     private func listedProcessIDs() -> [pid_t] {
         let concealed = overlayPanel?.appState?.menuBarManager.concealer.concealedBundleIDs ?? []
-        return NSWorkspace.shared.runningApplications.compactMap { app in
+        if
+            let cache = Self.listedProcessIDsCache,
+            cache.concealed == concealed,
+            Date().timeIntervalSince(cache.date) < Self.listedProcessIDsTTL
+        {
+            return cache.pids
+        }
+        let pids: [pid_t] = NSWorkspace.shared.runningApplications.compactMap { app in
             if let bundleID = app.bundleIdentifier, concealed.contains(bundleID) {
                 return nil
             }
             return app.processIdentifier
+        }
+        Self.listedProcessIDsCache = (concealed, pids, Date())
+        return pids
+    }
+
+    /// Arms a rescan burst for the display, starting a fresh scan budget.
+    ///
+    /// Bursts are spaced out: a display whose probes keep disagreeing with
+    /// the sweep would otherwise restart the moment something clears the
+    /// quiet period, and each burst is a dozen full sweeps.
+    private static func armTrailingBurst(for display: CGDirectDisplayID, duration: TimeInterval) {
+        if let last = lastBurstAt[display], Date().timeIntervalSince(last) < burstSpacing {
+            return
+        }
+        lastBurstAt[display] = Date()
+        trailingBurstUntil[display] = Date().addingTimeInterval(duration)
+        burstScanCount[display] = 0
+    }
+
+    /// Clears the burst state for the display.
+    private static func endTrailingBurst(for display: CGDirectDisplayID) {
+        trailingBurstUntil.removeValue(forKey: display)
+        slideSettlesAt.removeValue(forKey: display)
+        toggleOriginWidth.removeValue(forKey: display)
+        burstScanCount.removeValue(forKey: display)
+    }
+
+    /// Counts one chained scan into the current burst.
+    ///
+    /// - Returns: `true` while the burst may chain another scan, `false` once
+    ///   it has spent ``maxBurstScans``. The giving-up scan ends the burst and
+    ///   quiets the edge check, so it cannot immediately re-arm it.
+    private static func noteBurstScan(for display: CGDirectDisplayID) -> Bool {
+        let count = burstScanCount[display, default: 0] + 1
+        if count <= maxBurstScans {
+            burstScanCount[display] = count
+            return true
+        }
+        Logger.overlayPanel.warning(
+            "Trailing width on display \(display) did not converge after \(maxBurstScans) rescans; holding it and pausing edge checks for \(Int(edgeCheckQuietDuration))s"
+        )
+        endTrailingBurst(for: display)
+        edgeCheckQuietUntil[display] = Date().addingTimeInterval(edgeCheckQuietDuration)
+        return false
+    }
+
+    /// Clears everything that holds a display back from a new burst.
+    ///
+    /// Called when the bar really changed (control item moved or toggled, an
+    /// app launched or quit), so a display that gave up earlier is checked
+    /// promptly again.
+    private static func allowTrailingChecksAgain(for display: CGDirectDisplayID? = nil) {
+        if let display {
+            edgeCheckQuietUntil.removeValue(forKey: display)
+        } else {
+            edgeCheckQuietUntil.removeAll()
         }
     }
 
@@ -1723,7 +1845,30 @@ final class MenuBarOverlayPanelContentView: NSView {
     /// trailing pill on the wallpaper.
     ///
     /// Public CGWindowList read: owner/name/bounds need no extra entitlement.
+    /// The list is rebuilt at most every ``indicatorFramesTTL``: a full
+    /// window-list copy is milliseconds of WindowServer IPC, and the fast
+    /// edge check on each display asks for it several times a second.
     private static func screenCaptureIndicatorFrames() -> [CGRect] {
+        if
+            let cached = indicatorFramesCache,
+            Date().timeIntervalSince(cached.date) < indicatorFramesTTL
+        {
+            return cached.frames
+        }
+        let frames = readScreenCaptureIndicatorFrames()
+        indicatorFramesCache = (frames, Date())
+        return frames
+    }
+
+    /// Cached answers from ``screenCaptureIndicatorFrames()``.
+    private static var indicatorFramesCache: (frames: [CGRect], date: Date)?
+
+    /// How long ``indicatorFramesCache`` is trusted. Short: the pill appears
+    /// and disappears in well under a second, so this only coalesces the
+    /// probes that land inside one check.
+    private static let indicatorFramesTTL: TimeInterval = 0.5
+
+    private static func readScreenCaptureIndicatorFrames() -> [CGRect] {
         guard let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
@@ -1936,7 +2081,10 @@ final class MenuBarOverlayPanelContentView: NSView {
         let display = panel.owningScreen.displayID
         guard
             !Self.trailingWidthScanInFlight.contains(display),
-            Self.trailingBurstUntil[display].map({ Date() >= $0 }) ?? true
+            Self.trailingBurstUntil[display].map({ Date() >= $0 }) ?? true,
+            // A display that burned through its burst budget is probed again
+            // only after a real layout change (see `noteBurstScan`).
+            Self.edgeCheckQuietUntil[display].map({ Date() >= $0 }) ?? true
         else {
             // A scan or toggle burst already owns the edge.
             return
@@ -1999,7 +2147,7 @@ final class MenuBarOverlayPanelContentView: NSView {
                     }
                 } else if !Self.isStripOccluded(display: display) {
                     Logger.overlayPanel.debug("Edge check \(display): expected=\(expected) verdict=\(verdict)")
-                    Self.trailingBurstUntil[display] = Date().addingTimeInterval(1.0)
+                    Self.armTrailingBurst(for: display, duration: 1.0)
                     self.needsDisplay = true
                     self.refreshTrailingStatusWidth(for: display, force: true, quick: verdict)
                 }
