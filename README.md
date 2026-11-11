@@ -40,7 +40,9 @@ Move it to `/Applications`, launch it, and grant Accessibility and Screen
 Recording when asked.
 
 Because the build is ad-hoc signed, macOS forgets those permissions every time
-the app is rebuilt.
+the app is rebuilt. Ad-hoc binaries also carry no team ID, so
+`Ice/Resources/BarMan.entitlements` disables library validation; without it the
+app aborts at launch while dyld tries to load the Sparkle framework.
 
 ## Tests
 

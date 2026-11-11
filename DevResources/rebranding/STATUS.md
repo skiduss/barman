@@ -66,6 +66,12 @@ Notes on the build environment:
 - If SPM caches from the old lockfile are present, build fails with stale
   explicit-module errors. Fix: delete `~/Library/Developer/Xcode/DerivedData/Ice-*/Build`
   and `SourcePackages/repositories/Semaphore-*`.
+- First launch of an ad-hoc build crashed in dyld with "Library not loaded:
+  @rpath/Sparkle.framework/Versions/B/Sparkle ... different Team IDs". Ad-hoc
+  signatures carry no team ID, and hardened runtime only loads libraries that
+  share the process's team ID, so `Ice/Resources/BarMan.entitlements` now sets
+  `com.apple.security.cs.disable-library-validation`. Verified: the Release build
+  launches, stays up, and writes no crash report.
 
 ## Still open
 

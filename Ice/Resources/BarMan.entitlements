@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- BarMan builds ad-hoc signed (see README), while the Sparkle framework
+	     that ships inside the app is signed by the Sparkle project. Hardened
+	     runtime only allows a process to load libraries that share its team ID,
+	     and ad-hoc signatures carry no team ID, so dyld aborts at launch with
+	     "Library not loaded: @rpath/Sparkle.framework/Versions/B/Sparkle".
+
+	     This entitlement relaxes library validation for such builds. It can be
+	     dropped once BarMan ships signed with a Developer ID and Xcode re-signs
+	     the embedded frameworks with the same identity. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
