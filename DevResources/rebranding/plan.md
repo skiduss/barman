@@ -15,7 +15,7 @@
 | Target / module / folder | **BarMan** |
 | Copyright | `Copyright © 2026 skidus` |
 | Website | **skidus.dev** |
-| Main repo | **https://github.com/skiduss/barman.git** (`skiduss/barman`) |
+| Main repo | **https://git.gkx-ds920.synology.me/Utility-and-Tools-Apps/Menubar-Manager.git** (remote `origin`; GitHub `skiduss/barman` kept as remote `github`) |
 | Sparkle auto-update | **disabled** (no feed published yet) |
 | App icon | keep existing Ice icon for now (swap later) |
 | "Ice Bar" feature | **"BarMan Pill"** |
@@ -120,7 +120,9 @@
 - `Info.plist`: feed → `https://skiduss.github.io/macos-app-releases/barman/appcast.xml`, `SUEnableAutomaticChecks=false`
 - README, `script/*.sh`, `script/README.md`, `.github/workflows/*`, issue templates, `FUNDING.yml`, `CONTRIBUTING.md`
 - `script/tests/ice-bar-position.swift` → `pill-position.swift`; all 6 regression scripts pass
-- `git remote origin` → `https://github.com/skiduss/barman.git`
+- `git remote origin` → `https://github.com/skiduss/barman.git` (superseded, see below)
+- remotes re-pointed: **`origin`** = `https://git.gkx-ds920.synology.me/Utility-and-Tools-Apps/Menubar-Manager.git` (main, Gitea), **`github`** = `https://github.com/skiduss/barman.git` (kept as fallback/mirror)
+- in-app and documentation links intentionally stay on `github.com/skiduss/barman`; release/appcast pipeline stays on GitHub Actions
 - Verified: `xcodebuild -scheme BarMan` succeeds; built app reports `com.skidus.barman`, `BarMan.app`, `Copyright © 2026 skidus`
 
 **Deliberately left**
