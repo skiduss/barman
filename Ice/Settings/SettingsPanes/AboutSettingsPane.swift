@@ -16,13 +16,19 @@ struct AboutSettingsPane: View {
     }
 
     /// The project this app is derived from.
-    ///
-    /// TODO: point this at the published BarMan repository before distributing
-    /// builds. GPL-3.0 §6 requires recipients to be able to obtain the
-    /// corresponding source of the version they received.
     private var upstreamURL: URL {
         // swiftlint:disable:next force_unwrapping
         URL(string: "https://github.com/jordanbaird/Ice")!
+    }
+
+    /// The source repository for BarMan itself, required by GPL-3.0 §6.
+    private var sourceURL: URL {
+        // swiftlint:disable:next force_unwrapping
+        URL(string: "https://github.com/skiduss/barman")!
+    }
+
+    private var issuesURL: URL {
+        sourceURL.appendingPathComponent("issues")
     }
 
     private var lastUpdateCheckString: String {
@@ -151,6 +157,12 @@ struct AboutSettingsPane: View {
             Spacer()
             Button("Acknowledgements") {
                 NSWorkspace.shared.open(acknowledgementsURL)
+            }
+            Button("Source Code") {
+                openURL(sourceURL)
+            }
+            Button("Report a Bug") {
+                openURL(issuesURL)
             }
             Button("Based on Ice") {
                 openURL(upstreamURL)

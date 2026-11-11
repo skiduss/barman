@@ -28,6 +28,8 @@ restores it.
 Prebuilt releases are not published yet, so build from source:
 
 ```sh
+git clone https://github.com/skiduss/barman.git
+cd barman
 xcodebuild -project Ice.xcodeproj -scheme BarMan -configuration Release \
   build CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Manual
 ```
@@ -129,5 +131,4 @@ contributors. macOS 27 support comes from Ice PR #995 by RabenkoYevhenii.
 See [NOTICE](NOTICE) for the attribution and the full list of changes made in
 this fork, as required by GPL-3.0 §5(a).
 
-Corresponding source: TODO — this repository is not published yet, so builds of
-BarMan must not be distributed until that URL exists (GPL-3.0 §6).
+Corresponding source: <https://github.com/skiduss/barman> (GPL-3.0 §6).

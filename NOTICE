@@ -35,7 +35,6 @@ Changes made in this fork (GPL-3.0 §5(a)), all dated 2026-11-11:
   updater now starts only when SUFeedURL is present, so BarMan never offers
   upstream Ice builds as updates.
 
-Corresponding source: TODO — this repository is not published yet. GPL-3.0 §6
-requires that everyone who receives a BarMan binary can obtain the source of the
-exact version they received, so that URL must be filled in before any build is
-distributed.
+Corresponding source: https://github.com/skiduss/barman
+Everyone who receives a BarMan binary can obtain the source of that exact
+version from that repository (GPL-3.0 §6).

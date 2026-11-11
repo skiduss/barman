@@ -69,9 +69,9 @@ Notes on the build environment:
 
 ## Still open
 
-- [ ] **Publish the source repository.** GPL-3.0 §6 requires corresponding source;
-      until a public repo URL exists, builds must stay local. Then update the
-      `TODO` in `NOTICE`, the README, and the About pane's `upstreamURL`.
+- [x] **Publish the source repository.** <https://github.com/skiduss/barman>
+      (forked from `jordanbaird/Ice`, `main` fast-forwards to this work).
+      `NOTICE`, the README, and the About pane's `sourceURL` all point at it.
 - [ ] **Icon.** `Ice/Assets.xcassets/AppIcon` is still Jordan Baird's artwork.
       Replace before distributing (trademark is not covered by the GPL).
 - [ ] **Sparkle appcast** for BarMan releases, plus a new EdDSA key pair
