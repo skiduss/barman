@@ -72,6 +72,8 @@ Notes on the build environment:
 - [x] **Publish the source repository.** <https://github.com/skiduss/barman>
       (forked from `jordanbaird/Ice`, `main` fast-forwards to this work).
       `NOTICE`, the README, and the About pane's `sourceURL` all point at it.
+      Pushed 2026-11-11: `origin/main` = `a310f166`; `origin` is the fork,
+      `upstream` is `jordanbaird/Ice`.
 - [ ] **Icon.** `Ice/Assets.xcassets/AppIcon` is still Jordan Baird's artwork.
       Replace before distributing (trademark is not covered by the GPL).
 - [ ] **Sparkle appcast** for BarMan releases, plus a new EdDSA key pair

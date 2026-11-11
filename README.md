@@ -84,7 +84,7 @@ swift test
 
 - [x] Toggle individual menu bar sections
 - [x] Show the search panel
-- [x] Enable/disable the Ice Bar
+- [x] Enable/disable the BarMan Bar
 - [x] Show/hide section divider icons
 - [x] Toggle application menus
 - [ ] Enable/disable auto rehide
@@ -93,18 +93,20 @@ swift test
 ### Other
 
 - [x] Launch at login
-- [x] Automatic updates
+- [ ] Automatic updates (Sparkle is built in but dormant: this fork ships no appcast yet, so the updater never starts)
 - [ ] Menu bar widgets
 
-## Why does Ice only support macOS 14 and later?
+## Why does BarMan support only macOS 14 and later?
 
-Ice uses a number of system APIs that are available starting in macOS 14. As such, there are no plans to support earlier versions of macOS.
+BarMan inherits Ice's use of system APIs that are available starting in macOS 14,
+so there are no plans to support earlier versions of macOS either. macOS 27
+support itself comes from Ice PR [#995](https://github.com/jordanbaird/Ice/pull/995).
 
 ## Gallery
 
 #### Show hidden menu bar items below the menu bar
 
-![Ice Bar](https://github.com/user-attachments/assets/f1429589-6186-4e1b-8aef-592219d49b9b)
+![BarMan Bar](https://github.com/user-attachments/assets/f1429589-6186-4e1b-8aef-592219d49b9b)
 
 #### Drag-and-drop interface to arrange menu bar items
 
