@@ -1,38 +1,51 @@
 <div align="center">
-    <img src="Ice/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width=200 height=200>
-    <h1>Ice</h1>
+    <h1>BarMan</h1>
 </div>
 
-Ice is a powerful menu bar management tool. While its primary function is hiding and showing menu bar items, it aims to cover a wide variety of additional features to make it one of the most versatile menu bar tools available.
+BarMan is a maintained fork of [Ice](https://github.com/jordanbaird/Ice) that keeps
+the menu bar manager working on macOS 27 and later. Ice's last stable release was
+0.11.12 in October 2024, and macOS 27 replaced the per-item windows Ice relied on
+with a single bar drawn by `MenuBarAgent`. BarMan merges the community work that
+restores it.
 
-![Banner](https://github.com/user-attachments/assets/4423085c-4e4b-4f3d-ad0f-90a217c03470)
+> [!IMPORTANT]
+> BarMan is not affiliated with, endorsed by, or supported by Jordan Baird, and it
+> is not an official Ice release. Please do not report BarMan problems to the Ice
+> issue tracker.
 
-[![Download](https://img.shields.io/badge/download-latest-brightgreen?style=flat-square)](https://github.com/jordanbaird/Ice/releases/latest)
-![Platform](https://img.shields.io/badge/platform-macOS-blue?style=flat-square)
-![Requirements](https://img.shields.io/badge/requirements-macOS%2014%2B-fa4e49?style=flat-square)
-[![Sponsor](https://img.shields.io/badge/Sponsor%20%E2%9D%A4%EF%B8%8F-8A2BE2?style=flat-square)](https://github.com/sponsors/jordanbaird)
-[![Website](https://img.shields.io/badge/Website-015FBA?style=flat-square)](https://icemenubar.app)
-[![License](https://img.shields.io/github/license/jordanbaird/Ice?style=flat-square)](LICENSE)
+## What this fork changes
 
-> [!NOTE]
-> Ice is currently in active development. Some features have not yet been implemented. Download the latest release [here](https://github.com/jordanbaird/Ice/releases/latest) and see the roadmap below for upcoming features.
-
-<a href="https://www.buymeacoffee.com/jordanbaird" target="_blank">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
-</a>
+- Restores hiding, revealing, the BarMan Bar (formerly the Ice Bar) and the Menu
+  Bar Layout editor on macOS 27, from Ice PR
+  [#995](https://github.com/jordanbaird/Ice/pull/995). Behaviour on macOS 26 and
+  earlier is unchanged.
+- Rebranded as BarMan: product name, bundle identifiers
+  (`com.macutils.barman`), and user-facing strings.
+- Version reset to 1.0.0. The upstream Sparkle appcast is deliberately not used.
 
 ## Install
 
-### Manual Installation
-
-Download the "Ice.zip" file from the [latest release](https://github.com/jordanbaird/Ice/releases/latest) and move the unzipped app into your `Applications` folder.
-
-### Homebrew
-
-Install Ice using the following command:
+Prebuilt releases are not published yet, so build from source:
 
 ```sh
-brew install --cask jordanbaird-ice
+xcodebuild -project Ice.xcodeproj -scheme BarMan -configuration Release \
+  build CODE_SIGN_IDENTITY="-" DEVELOPMENT_TEAM="" CODE_SIGN_STYLE=Manual
+```
+
+The app lands in
+`~/Library/Developer/Xcode/DerivedData/Ice-*/Build/Products/Release/BarMan.app`.
+Move it to `/Applications`, launch it, and grant Accessibility and Screen
+Recording when asked.
+
+Because the build is ad-hoc signed, macOS forgets those permissions every time
+the app is rebuilt.
+
+## Tests
+
+The macOS 27 logic is unit tested without launching the app:
+
+```sh
+swift test
 ```
 
 ## Features/Roadmap
@@ -109,4 +122,12 @@ Ice uses a number of system APIs that are available starting in macOS 14. As suc
 
 ## License
 
-Ice is available under the [GPL-3.0 license](LICENSE).
+BarMan is distributed under the [GPL-3.0 license](LICENSE), the same license as
+Ice. It is a modified version of Ice, Copyright © 2025 Jordan Baird and
+contributors. macOS 27 support comes from Ice PR #995 by RabenkoYevhenii.
+
+See [NOTICE](NOTICE) for the attribution and the full list of changes made in
+this fork, as required by GPL-3.0 §5(a).
+
+Corresponding source: TODO — this repository is not published yet, so builds of
+BarMan must not be distributed until that URL exists (GPL-3.0 §6).

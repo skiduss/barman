@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>SUFeedURL</key>
-	<string>https://jordanbaird.github.io/ice-releases/appcast.xml</string>
+	<!-- Upstream Ice appcast: do not ship it, it would offer Ice over BarMan.
+	     Add a BarMan appcast URL here once releases are published. -->
 	<key>SUPublicEDKey</key>
 	<string>3nfIGMOD8DALPE8vIdFo2tUOIVc2MVbzhc+2J9JLn+Q=</string>
 </dict>

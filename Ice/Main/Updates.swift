@@ -18,9 +18,21 @@ final class UpdatesManager: NSObject, ObservableObject {
     /// The shared app state.
     private(set) weak var appState: AppState?
 
+    /// Whether this build ships an appcast to check for updates against.
+    ///
+    /// BarMan has no appcast of its own yet. Starting Sparkle without a feed
+    /// URL only produces errors, so the updater stays dormant until a
+    /// `SUFeedURL` is added to `Ice/Resources/Info.plist`.
+    private static var hasUpdateFeed: Bool {
+        guard let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String else {
+            return false
+        }
+        return !feed.isEmpty
+    }
+
     /// The underlying updater controller.
     private(set) lazy var updaterController = SPUStandardUpdaterController(
-        startingUpdater: true,
+        startingUpdater: Self.hasUpdateFeed,
         updaterDelegate: self,
         userDriverDelegate: self
     )

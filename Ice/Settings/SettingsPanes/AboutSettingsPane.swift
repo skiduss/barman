@@ -15,18 +15,14 @@ struct AboutSettingsPane: View {
         Bundle.main.url(forResource: "Acknowledgements", withExtension: "pdf")!
     }
 
-    private var contributeURL: URL {
+    /// The project this app is derived from.
+    ///
+    /// TODO: point this at the published BarMan repository before distributing
+    /// builds. GPL-3.0 §6 requires recipients to be able to obtain the
+    /// corresponding source of the version they received.
+    private var upstreamURL: URL {
         // swiftlint:disable:next force_unwrapping
         URL(string: "https://github.com/jordanbaird/Ice")!
-    }
-
-    private var issuesURL: URL {
-        contributeURL.appendingPathComponent("issues")
-    }
-
-    private var donateURL: URL {
-        // swiftlint:disable:next force_unwrapping
-        URL(string: "https://icemenubar.app/Donate")!
     }
 
     private var lastUpdateCheckString: String {
@@ -85,7 +81,7 @@ struct AboutSettingsPane: View {
                 }
 
                 VStack(alignment: .leading) {
-                    Text("Ice")
+                    Text("BarMan")
                         .font(.system(size: 80))
                         .foregroundStyle(.primary)
 
@@ -96,6 +92,10 @@ struct AboutSettingsPane: View {
                     Text(Constants.copyrightString)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary.opacity(0.67))
+
+                    Text("Based on Ice by Jordan Baird · GPL-3.0")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary.opacity(0.5))
                 }
                 .fontWeight(.medium)
             }
@@ -145,21 +145,15 @@ struct AboutSettingsPane: View {
     @ViewBuilder
     private func bottomBar(containerShape: some InsettableShape) -> some View {
         HStack {
-            Button("Quit Ice") {
+            Button("Quit BarMan") {
                 NSApp.terminate(nil)
             }
             Spacer()
             Button("Acknowledgements") {
                 NSWorkspace.shared.open(acknowledgementsURL)
             }
-            Button("Contribute") {
-                openURL(contributeURL)
-            }
-            Button("Report a Bug") {
-                openURL(issuesURL)
-            }
-            Button("Support Ice", systemImage: "heart.circle.fill") {
-                openURL(donateURL)
+            Button("Based on Ice") {
+                openURL(upstreamURL)
             }
         }
         .padding(8)

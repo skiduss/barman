@@ -81,13 +81,13 @@ struct GeneralSettingsPane: View {
 
     @ViewBuilder
     private var showIceIcon: some View {
-        Toggle("Show Ice icon", isOn: $settings.showIceIcon)
-            .annotation("Click to show hidden menu bar items. Right-click to access Ice's settings.")
+        Toggle("Show BarMan icon", isOn: $settings.showIceIcon)
+            .annotation("Click to show hidden menu bar items. Right-click to access BarMan's settings.")
     }
 
     @ViewBuilder
     private var iceIconPicker: some View {
-        let labelKey = LocalizedStringKey("Ice icon")
+        let labelKey = LocalizedStringKey("BarMan icon")
 
         IceMenu(labelKey) {
             Picker(labelKey, selection: $settings.iceIcon) {
@@ -188,7 +188,7 @@ struct GeneralSettingsPane: View {
 
     @ViewBuilder
     private var useIceBar: some View {
-        Toggle("Use Ice Bar", isOn: $settings.useIceBar)
+        Toggle("Use BarMan Bar", isOn: $settings.useIceBar)
             .annotation("Show hidden menu bar items in a separate bar below the menu bar.")
     }
 
@@ -202,11 +202,11 @@ struct GeneralSettingsPane: View {
         .annotation {
             switch settings.iceBarLocation {
             case .dynamic:
-                Text("The Ice Bar's location changes based on context.")
+                Text("The BarMan Bar's location changes based on context.")
             case .mousePointer:
-                Text("The Ice Bar is centered below the mouse pointer.")
+                Text("The BarMan Bar is centered below the mouse pointer.")
             case .iceIcon:
-                Text("The Ice Bar is centered below the Ice icon.")
+                Text("The BarMan Bar is centered below the BarMan icon.")
             }
         }
     }

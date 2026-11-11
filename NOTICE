@@ -1,0 +1,41 @@
+BarMan
+Copyright (C) 2026 Sakda
+
+BarMan is a modified version of Ice, Copyright (C) 2025 Jordan Baird and
+contributors, licensed under the GNU General Public License v3.0.
+See LICENSE for the full license text.
+
+macOS 27 support — Ice/MenuBar/MacOS27, Shared/Services changes made for it,
+Package.swift, and Tests/IceMacOS27CoreTests — comes from Ice pull request #995,
+"Restore hiding, the Ice Bar and the layout editor on macOS 27", by
+RabenkoYevhenii (https://github.com/jordanbaird/Ice/pull/995),
+Copyright (C) 2026 RabenkoYevhenii, licensed under GPL-3.0.
+
+Changes made in this fork (GPL-3.0 §5(a)), all dated 2026-11-11:
+
+- Merged Ice PR #995 onto upstream main (commit 11edd391) and committed it as
+  762165f5.
+- Renamed the product to BarMan (PRODUCT_NAME in Ice.xcodeproj/project.pbxproj)
+  and the shared scheme to BarMan.xcscheme.
+- Changed the bundle identifiers from com.jordanbaird.Ice and
+  com.jordanbaird.Ice.MenuBarItemService to com.macutils.barman and
+  com.macutils.barman.MenuBarItemService, and updated
+  Shared/Services/MenuBarItemService.swift to match.
+- Reset MARKETING_VERSION to 1.0.0 and CURRENT_PROJECT_VERSION to 1.
+- Replaced user-facing "Ice" branding with "BarMan" in the settings panes, the
+  permissions window, the right-click menu, the window titles, and the Ice Bar
+  (now "BarMan Bar"). Functional identifiers were left unchanged:
+  Ice.ControlItem.*, the asset names, the persisted control-item image names,
+  and the "Ice/ItemImages" cache directory.
+- Replaced the About pane's upstream donate, contribute, and report-a-bug links
+  with an attribution link to Ice, and added an in-app "Based on Ice" credit.
+- Replaced NSHumanReadableCopyright with a notice naming both the BarMan
+  copyright holder and the original Ice copyright holder.
+- Removed the upstream Sparkle appcast URL from Ice/Resources/Info.plist; the
+  updater now starts only when SUFeedURL is present, so BarMan never offers
+  upstream Ice builds as updates.
+
+Corresponding source: TODO — this repository is not published yet. GPL-3.0 §6
+requires that everyone who receives a BarMan binary can obtain the source of the
+exact version they received, so that URL must be filled in before any build is
+distributed.

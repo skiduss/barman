@@ -82,7 +82,7 @@ struct AdvancedSettingsPane: View {
     private var showCaptureIndicator: some View {
         Toggle(isOn: $settings.showCaptureIndicator) {
             Text("Show a camera and microphone indicator")
-            Text("macOS draws none of its own while Ice is hiding items. Click Ice's to open Control Centre.")
+            Text("macOS draws none of its own while BarMan is hiding items. Click BarMan's to open Control Centre.")
         }
     }
 
