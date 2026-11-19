@@ -4,3 +4,4 @@ xcuserdata/
 skills-lock.json
 release/
 *.pem
+*.pxd
