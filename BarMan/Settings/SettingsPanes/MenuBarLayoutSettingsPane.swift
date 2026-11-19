@@ -16,6 +16,8 @@ struct MenuBarLayoutSettingsPane: View {
     @State private var sections = [MenuBarItemAXDiscovery.SectionKind: [RowItem]]()
     @State private var hiddenDividerX: CGFloat?
     @State private var alwaysHiddenDividerX: CGFloat?
+    @State private var hiddenDividerWidth: CGFloat = 2
+    @State private var alwaysHiddenDividerWidth: CGFloat = 2
     @State private var anchorY: CGFloat = 0
     /// Guards against overlapping Refreshes: stacked AX + CGS scans cause stutter.
     @State private var isRefreshing = false
@@ -322,7 +324,7 @@ struct MenuBarLayoutSettingsPane: View {
     /// Drop an item into a new group: each attempt re-reads live positions
     /// first (cached frames go stale — a drag changes no window IDs, so a
     /// plain re-scan would reuse pre-drag frames), drags, then verifies the
-    /// icon really landed before counting it. Up to 3 physical drags; between
+    /// icon really landed before counting it. Up to 5 physical drags; between
     /// attempts the UI rebuilds from truth, so a miss never leaves a fake
     /// optimistic position behind.
     /// The `isMoving` guard blocks a second drag from fighting over the mouse.
@@ -333,11 +335,26 @@ struct MenuBarLayoutSettingsPane: View {
         isMoving = true
         moveMessage = nil
         pendingMoves.insert(itemID)
+        appState.eventManager.stopAll()
+        let widenHiddenDivider = kind == .hidden && (sections[.hidden] ?? []).isEmpty
+        if widenHiddenDivider {
+            appState.menuBarManager.section(withName: .hidden)?.controlItem.setTemporaryDragWidth(38)
+        }
         defer {
+            if widenHiddenDivider {
+                appState.menuBarManager.section(withName: .hidden)?.controlItem.setTemporaryDragWidth(nil)
+            }
+            appState.eventManager.startAll()
             pendingMoves.remove(itemID)
             isMoving = false
         }
-        for _ in 0..<3 {
+        // Let the SwiftUI NSDraggingSession finish tearing down before posting synthetic CGEvents.
+        try? await Task.sleep(for: .milliseconds(80))
+        Logger.menuBarLayout.debug(
+            "Move \(itemID) to \(kind): start (hiddenX=\(frameText(hiddenDividerX)), "
+                + "alwaysHiddenX=\(frameText(alwaysHiddenDividerX)), anchorY=\(anchorY))"
+        )
+        for attempt in 0..<5 {
             // Live positions, not the last scan: on macOS 27 the item cache
             // is empty and the stored frames go stale as soon as anything moves.
             await rescanLive()
@@ -350,16 +367,25 @@ struct MenuBarLayoutSettingsPane: View {
                 // Already in the destination group; put it back where it was,
                 // then re-scan so the UI is truth, not the optimistic append.
                 sections[kind, default: []].append(item)
+                if widenHiddenDivider {
+                    appState.menuBarManager.section(withName: .hidden)?.controlItem.setTemporaryDragWidth(nil)
+                }
+                await appState.menuBarManager.concealer.learnSections()
                 pendingMoves.remove(itemID)
                 isMoving = false
                 await refreshAfterDrop()
                 return
             }
             guard
-                let destination = destinationPoint(for: kind),
+                let destination = destinationPoint(for: kind, attempt: attempt),
                 let sourceFrame = item.quartzFrame
             else {
                 // No drop target known — re-scan for the real positions.
+                Logger.menuBarLayout.debug(
+                    "Move \(itemID) to \(kind): no drop point"
+                        + " (source=\(frameText(item.quartzFrame)),"
+                        + " divider=\(frameText(kind == .hidden ? hiddenDividerX : alwaysHiddenDividerX)))"
+                )
                 sections = snapshotBeforeDrag
                 moveMessage = "Couldn't find BarMan's section dividers in the menu bar. Make sure they're enabled, then try again."
                 await refresh()
@@ -371,6 +397,9 @@ struct MenuBarLayoutSettingsPane: View {
                 await refreshAfterDrop()
                 return
             }
+            Logger.menuBarLayout.debug(
+                "Move \(itemID) to \(kind): drag #\(attempt) \(frameText(sourceFrame)) → \(frameText(destination))"
+            )
             withAnimation(.easeInOut(duration: 0.2)) {
                 sections[kind, default: []].append(item)
             }
@@ -380,17 +409,32 @@ struct MenuBarLayoutSettingsPane: View {
             )
             sections = snapshotBeforeDrag
             await rescanLive()
-            if sections[kind]?.contains(where: { $0.id == itemID }) == true {
+            let landed = sections[kind]?.contains(where: { $0.id == itemID }) == true
+            Logger.menuBarLayout.debug(
+                "Move \(itemID) to \(kind): landed=\(landed)"
+                    + " where=\(sectionDescription(of: itemID))"
+                    + " counts=\(sections.map { "\($0.key)=\($0.value.count)" }.sorted().joined(separator: ","))"
+                    + " dividers=\(frameText(hiddenDividerX))/\(frameText(alwaysHiddenDividerX))"
+            )
+            if landed {
                 // Landed — but the frame right after a drag can still be
                 // settling, so always do one settled re-scan instead of
                 // trusting this snapshot. Otherwise the UI sometimes stays
                 // wrong until the user hits Refresh by hand.
+                if widenHiddenDivider {
+                    appState.menuBarManager.section(withName: .hidden)?.controlItem.setTemporaryDragWidth(nil)
+                }
+                await appState.menuBarManager.concealer.learnSections()
                 pendingMoves.remove(itemID)
                 isMoving = false
                 await refreshAfterDrop()
                 return
             }
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(350))
+        }
+        Logger.menuBarLayout.debug("Move \(itemID) to \(kind): gave up after 5 attempts")
+        if widenHiddenDivider {
+            appState.menuBarManager.section(withName: .hidden)?.controlItem.setTemporaryDragWidth(nil)
         }
         pendingMoves.remove(itemID)
         isMoving = false
@@ -435,12 +479,16 @@ struct MenuBarLayoutSettingsPane: View {
         isMoving = true
         moveMessage = nil
         pendingMoves.insert(itemID)
+        appState.eventManager.stopAll()
         defer {
+            appState.eventManager.startAll()
             pendingMoves.remove(itemID)
             isMoving = false
             dropTargetID = nil
         }
-        for _ in 0..<3 {
+        try? await Task.sleep(for: .milliseconds(80))
+        Logger.menuBarLayout.debug("Move \(itemID) onto \(targetID): start")
+        for _ in 0..<5 {
             await rescanLive()
             guard
                 let (item, fromKind, fromIndex) = findItem(id: itemID),
@@ -491,13 +539,14 @@ struct MenuBarLayoutSettingsPane: View {
             if hasLanded(itemID: itemID, targetID: targetID, fromKind: fromKind, toKind: toKind) {
                 // Same as section drops: one settled re-scan after landing,
                 // don't trust the immediate post-drag snapshot.
+                await appState.menuBarManager.concealer.learnSections()
                 pendingMoves.remove(itemID)
                 isMoving = false
                 dropTargetID = nil
                 await refreshAfterDrop()
                 return
             }
-            try? await Task.sleep(for: .milliseconds(400))
+            try? await Task.sleep(for: .milliseconds(350))
         }
         pendingMoves.remove(itemID)
         isMoving = false
@@ -619,15 +668,21 @@ struct MenuBarLayoutSettingsPane: View {
         return destinationPoint(for: kind)
     }
 
-    /// Left bound of the zone (minX of the divider on the left), nil when unknown.
+    /// Left bound of the zone (maxX of the divider on the left), nil when unknown.
     private func leftBound(for kind: MenuBarItemAXDiscovery.SectionKind) -> CGFloat? {
         switch kind {
         case .visible:
-            hiddenDividerX ?? alwaysHiddenDividerX
+            if let x = hiddenDividerX {
+                return x + hiddenDividerWidth
+            }
+            if let x = alwaysHiddenDividerX {
+                return x + alwaysHiddenDividerWidth
+            }
+            return nil
         case .hidden:
-            alwaysHiddenDividerX
+            return alwaysHiddenDividerX.map { $0 + alwaysHiddenDividerWidth }
         case .alwaysHidden:
-            nil
+            return nil
         }
     }
 
@@ -650,23 +705,78 @@ struct MenuBarLayoutSettingsPane: View {
     /// the group whether it is empty or not. Dropping halfway to the next
     /// divider used to hit the middle of the always-hidden chevron when the
     /// Hidden group was empty, and 24pt out could hit bare menu bar.
-    private func destinationPoint(for kind: MenuBarItemAXDiscovery.SectionKind) -> CGPoint? {
+    /// One-line description of a value for the move/dividers diagnostics above.
+    private func frameText(_ value: CGFloat?) -> String {
+        value.map { String(format: "%.1f", $0) } ?? "nil"
+    }
+
+    private func frameText(_ point: CGPoint?) -> String {
+        guard let point else {
+            return "nil"
+        }
+        return String(format: "%.1f,%.1f", point.x, point.y)
+    }
+
+    private func frameText(_ rect: CGRect?) -> String {
+        guard let rect else {
+            return "nil"
+        }
+        return String(format: "%.0fx%.0f+%.1f+%.1f", rect.width, rect.height, rect.minX, rect.minY)
+    }
+
+    /// Which group an item sits in after a drag, plus its new frame — the move
+    /// diagnostics above need this to tell "landed elsewhere" from "never moved".
+    private func sectionDescription(of itemID: String) -> String {
+        for (section, items) in sections {
+            if let item = items.first(where: { $0.id == itemID }) {
+                return "\(section) \(frameText(item.quartzFrame))"
+            }
+        }
+        return "missing"
+    }
+
+    private func destinationPoint(
+        for kind: MenuBarItemAXDiscovery.SectionKind,
+        attempt: Int = 0
+    ) -> CGPoint? {
         switch kind {
         case .visible:
-            guard let x = hiddenDividerX ?? alwaysHiddenDividerX else {
-                return nil
+            if let x = hiddenDividerX {
+                return CGPoint(x: x + hiddenDividerWidth + 24, y: anchorY)
             }
-            return CGPoint(x: x + 40, y: anchorY)
+            if let x = alwaysHiddenDividerX {
+                return CGPoint(x: x + alwaysHiddenDividerWidth + 24, y: anchorY)
+            }
+            return nil
         case .hidden:
             guard let x = hiddenDividerX else {
                 return nil
             }
-            return CGPoint(x: x - 4, y: anchorY)
+            guard let alwaysHiddenX = alwaysHiddenDividerX, alwaysHiddenX < x else {
+                return CGPoint(x: x - 12, y: anchorY)
+            }
+            // The Hidden group occupies the gap between the Always-Hidden divider's
+            // right edge and the Hidden divider's left edge.
+            let gapStart = alwaysHiddenX + alwaysHiddenDividerWidth
+            let gap = x - gapStart
+            if gap >= 12 {
+                // Room to aim for the middle of the group.
+                return CGPoint(x: gapStart + gap / 2, y: anchorY)
+            }
+            // Empty Hidden group: while dragging into an empty Hidden section,
+            // HiddenDivider is widened (e.g. 24–38pt) so its midpoint sits at
+            // `x + hiddenDividerWidth / 2`. Aiming just inside `HiddenDivider`'s
+            // left edge (`x` to `x + 4`) crosses well past `HiddenDivider.midX`
+            // without crossing `AlwaysHiddenDivider.maxX` (`gapStart`), so
+            // MenuBarAgent swaps the icon cleanly between the two dividers.
+            let offsets: [CGFloat] = [2, 0, 4, -2, 6]
+            let offset = offsets[attempt % offsets.count]
+            return CGPoint(x: max(alwaysHiddenX + alwaysHiddenDividerWidth / 2 + 4, x + offset), y: anchorY)
         case .alwaysHidden:
             guard let x = alwaysHiddenDividerX else {
                 return nil
             }
-            return CGPoint(x: x - 4, y: anchorY)
+            return CGPoint(x: x - 12, y: anchorY)
         }
     }
 
@@ -800,9 +910,21 @@ struct MenuBarLayoutSettingsPane: View {
             ?? saneMinX(manager.section(withName: .hidden)?.controlItem.window?.frame.minX)
         let rawAlwaysHiddenX = settledMinX(axDividers.alwaysHidden)
             ?? saneMinX(manager.section(withName: .alwaysHidden)?.controlItem.window?.frame.minX)
+        if let width = axDividers.hidden?.width ?? manager.section(withName: .hidden)?.controlItem.window?.frame.width, width > 0 {
+            hiddenDividerWidth = width
+        }
+        if let width = axDividers.alwaysHidden?.width ?? manager.section(withName: .alwaysHidden)?.controlItem.window?.frame.width, width > 0 {
+            alwaysHiddenDividerWidth = width
+        }
         let dividers = MenuBarItemAXDiscovery.normalizedDividers(
             hiddenDividerX: rawHiddenX,
             alwaysHiddenDividerX: rawAlwaysHiddenX
+        )
+        Logger.menuBarLayout.debug(
+            "Dividers: ax hidden=\(frameText(axDividers.hidden))"
+                + " alwaysHidden=\(frameText(axDividers.alwaysHidden))"
+                + " → hidden=\(frameText(dividers.hidden))"
+                + " alwaysHidden=\(frameText(dividers.alwaysHidden))"
         )
         return (dividers.hidden, dividers.alwaysHidden)
     }
@@ -1207,4 +1329,11 @@ private extension MenuBarItemAXDiscovery.AXMenuBarItem {
             bundleID
         }
     }
+}
+
+// MARK: - Logger
+
+private extension Logger {
+    /// The logger to use for the menu bar layout settings pane.
+    static let menuBarLayout = Logger(category: "MenuBarLayout")
 }

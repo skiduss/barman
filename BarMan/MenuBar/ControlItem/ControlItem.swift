@@ -388,7 +388,7 @@ final class ControlItem {
                     // ponytail: the divider collapses to a 1pt sliver instead of
                     // disappearing, so it stays in the bar as the section
                     // boundary (AX lookup still finds it) without holding a slot.
-                    isVisible = shouldShow
+                    updateStatusItem(with: state)
                 }
                 .store(in: &c)
 
@@ -441,6 +441,20 @@ final class ControlItem {
         }
     }
 
+    /// Temporarily widens a section divider during a layout drag so an empty
+    /// section has a wide, unambiguous drop slot, or restores its standard length.
+    func setTemporaryDragWidth(_ width: CGFloat?) {
+        guard isSectionDivider else {
+            return
+        }
+        if let width {
+            statusItem.length = width
+            constraint?.isActive = true
+        } else if let section {
+            applyLength(isVisible: isVisible, state: state, section: section.name)
+        }
+    }
+
     /// Sets the initial configuration for the status item.
     private func configureStatusItem() {
         defer {
@@ -484,32 +498,7 @@ final class ControlItem {
             isVisible = true
             // Enable the cell, as it may have been previously disabled.
             button.cell?.isEnabled = true
-            let icon = appState.settingsManager.generalSettingsManager.barManIcon
-            let reversed = appState.settingsManager.generalSettingsManager.reverseBarManIcon
-            let hiddenImage = reversed ? icon.visible : icon.hidden
-            let visibleImage = reversed ? icon.hidden : icon.visible
-            // Closed points right like a collapsed disclosure; open points
-            // left toward the revealed items, matching the section dividers.
-            // The arrow mirrors the always-hidden section while it is enabled;
-            // otherwise it mirrors this section.
-            let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden)
-            let showsOpenArrow = if alwaysHiddenSection?.isEnabled == true {
-                alwaysHiddenSection?.controlItem.state == .showItems
-            } else {
-                state == .showItems
-            }
-            button.image = showsOpenArrow ? hiddenImage.nsImage(for: appState) : visibleImage.nsImage(for: appState)
-            if
-                case .custom = icon.name,
-                let originalImage = button.image
-            {
-                // Custom icons need to be resized to fit inside the button.
-                let originalWidth = originalImage.size.width
-                let originalHeight = originalImage.size.height
-                let ratio = max(originalWidth / 25, originalHeight / 17)
-                let newSize = CGSize(width: originalWidth / ratio, height: originalHeight / ratio)
-                button.image = originalImage.resized(to: newSize)
-            }
+            button.image = barManIconImage(for: state)
         case .hidden, .alwaysHidden:
             // When the concealer hides sections (macOS 27 with a display
             // without a notch), a hidden section's divider keeps its shown
@@ -524,6 +513,7 @@ final class ControlItem {
                 button.image = nil
             case .showItems:
                 let shouldShowDivider = appState.settingsManager.advancedSettingsManager.showSectionDividers
+                    || appState.menuBarManager.isLayoutEditing
                 // ponytail: same sliver collapse as the $showSectionDividers sink
                 // — a `Lengths.standard` item with no image left a ~40pt gap
                 // between the revealed section and the next one.
@@ -546,6 +536,72 @@ final class ControlItem {
         }
     }
 
+    /// Returns the resized menu bar image for the BarMan icon, or `nil` if unavailable.
+    func barManIconImage(for state: HidingState? = nil) -> NSImage? {
+        guard let appState else {
+            return nil
+        }
+        let currentState = state ?? self.state
+        let icon = appState.settingsManager.generalSettingsManager.barManIcon
+        let reversed = appState.settingsManager.generalSettingsManager.reverseBarManIcon
+        let hiddenImage = reversed ? icon.visible : icon.hidden
+        let visibleImage = reversed ? icon.hidden : icon.visible
+        // Closed points right like a collapsed disclosure; open points
+        // left toward the revealed items, matching the section dividers.
+        // The arrow mirrors the always-hidden section while it is enabled;
+        // otherwise it mirrors this section.
+        let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden)
+        let showsOpenArrow = if alwaysHiddenSection?.isEnabled == true {
+            alwaysHiddenSection?.controlItem.state == .showItems
+        } else {
+            currentState == .showItems
+        }
+        var image = showsOpenArrow ? hiddenImage.nsImage(for: appState) : visibleImage.nsImage(for: appState)
+        if
+            case .custom = icon.name,
+            let originalImage = image
+        {
+            // Custom icons need to be resized to fit inside the button.
+            let originalWidth = originalImage.size.width
+            let originalHeight = originalImage.size.height
+            let ratio = max(originalWidth / 25, originalHeight / 17)
+            let newSize = CGSize(width: originalWidth / ratio, height: originalHeight / ratio)
+            image = originalImage.resized(to: newSize)
+        }
+        return image
+    }
+
+    /// Creates a context menu for this control item.
+    func createContextMenu() -> NSMenu? {
+        appState.map { createMenu(with: $0) }
+    }
+
+    /// Triggers the standard left-click action for this control item.
+    func triggerLeftClickAction(modifiers: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
+        guard let appState else {
+            return
+        }
+        if
+            modifiers == .option,
+            appState.settingsManager.advancedSettingsManager.canToggleAlwaysHiddenSection
+        {
+            if let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden) {
+                alwaysHiddenSection.toggle()
+            }
+        } else if
+            identifier == .barManIcon,
+            let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden),
+            alwaysHiddenSection.isEnabled
+        {
+            // The BarMan icon drives the always-hidden section, leaving the
+            // hidden section untouched (it is driven by click/hover/scroll
+            // on empty menu bar space, its divider, or its hotkey).
+            alwaysHiddenSection.toggle()
+        } else {
+            section?.toggle()
+        }
+    }
+
     /// Performs the control item's action.
     @objc private func performAction() {
         guard
@@ -558,24 +614,8 @@ final class ControlItem {
         case .leftMouseDown, .leftMouseUp:
             if NSEvent.modifierFlags == .control {
                 statusItem.showMenu(createMenu(with: appState))
-            } else if
-                NSEvent.modifierFlags == .option,
-                appState.settingsManager.advancedSettingsManager.canToggleAlwaysHiddenSection
-            {
-                if let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden) {
-                    alwaysHiddenSection.toggle()
-                }
-            } else if
-                identifier == .barManIcon,
-                let alwaysHiddenSection = appState.menuBarManager.section(withName: .alwaysHidden),
-                alwaysHiddenSection.isEnabled
-            {
-                // The BarMan icon drives the always-hidden section, leaving the
-                // hidden section untouched (it is driven by click/hover/scroll
-                // on empty menu bar space, its divider, or its hotkey).
-                alwaysHiddenSection.toggle()
             } else {
-                section?.toggle()
+                triggerLeftClickAction(modifiers: NSEvent.modifierFlags)
             }
         case .rightMouseUp:
             statusItem.showMenu(createMenu(with: appState))

@@ -74,6 +74,12 @@ final class MenuBarConcealer {
     /// Hiding stays lifted until then, so a replayed click reaches a system item.
     private var suspendedUntil: ContinuousClock.Instant?
 
+    /// Watches an opened system panel so concealment stays suspended while it is visible.
+    private var panelWatchTask: Task<Void, Never>?
+
+    /// Fallback floating BarMan icon used when MenuBarAgent drops non-Developer-ID status items.
+    private let fallbackIconOverlay = ConcealedBarManIconOverlay()
+
     /// Whether the last update ran with this backend in use.
     private var wasInUse = false
 
@@ -108,6 +114,7 @@ final class MenuBarConcealer {
     /// Starts following the sections' states.
     func performSetup(with appState: AppState) {
         self.appState = appState
+        fallbackIconOverlay.performSetup(with: appState)
         guard #available(macOS 27, *), AssessmentAssertion.isAvailable else {
             return
         }
@@ -233,6 +240,7 @@ final class MenuBarConcealer {
             }
             live = (token, concealed, allowed)
             clickTap.enable()
+            fallbackIconOverlay.update(isConcealing: true, concealedBundleIDs: concealed)
             Logger.concealer.info("Hiding \(concealed.sorted())")
         } catch {
             Logger.concealer.error("Couldn't hide menu bar items: \(error)")
@@ -240,12 +248,20 @@ final class MenuBarConcealer {
     }
 
     /// Releases the live assertion, which brings every item back.
-    private func releaseAll() {
+    private func releaseAll(keepClickTap: Bool = false) {
+        fallbackIconOverlay.update(isConcealing: false, concealedBundleIDs: [])
+        if !keepClickTap {
+            panelWatchTask?.cancel()
+            panelWatchTask = nil
+        }
         guard let old = live else {
             return
         }
         live = nil
-        clickTap.disable()
+        let isHoldingRelease = heldReleaseUntil.map { ContinuousClock.now < $0 } ?? false
+        if !keepClickTap, !isHoldingRelease {
+            clickTap.disable()
+        }
         if #available(macOS 27, *) {
             AssessmentAssertion.invalidate(old.token)
         }
@@ -302,7 +318,7 @@ final class MenuBarConcealer {
     /// an item in overflow (no frame) keeps its last learned section. An app
     /// with items in several sections takes the most visible one, so nothing
     /// meant to stay visible is hidden with it.
-    private func learnSections() async {
+    func learnSections() async {
         guard let appState else {
             return
         }
@@ -370,11 +386,6 @@ final class MenuBarConcealer {
     /// Marks the clicks BarMan replays, so the tap lets them through.
     private static let replayMarker: Int64 = 0x1CE_27_C1C
 
-    /// How long hiding stays lifted around a replayed click. BarMan PR #995
-    /// measured on macOS 27.0 that 60ms loses a click now and then and 80ms
-    /// and up never do.
-    private static let clickLift = Duration.milliseconds(120)
-
     /// System items that ignore an Accessibility press (measured on macOS
     /// 27.0); others are pressed first, which needs no lift.
     private var itemsIgnoringPress: Set<String> = [
@@ -411,9 +422,15 @@ final class MenuBarConcealer {
         if type == .leftMouseUp {
             guard let until = heldReleaseUntil, ContinuousClock.now < until else {
                 heldReleaseUntil = nil
+                if !isConcealing && suspendedUntil == nil {
+                    clickTap.disable()
+                }
                 return event
             }
             heldReleaseUntil = nil
+            if !isConcealing && suspendedUntil == nil {
+                clickTap.disable()
+            }
             return nil
         }
         guard
@@ -422,7 +439,7 @@ final class MenuBarConcealer {
         else {
             return event
         }
-        heldReleaseUntil = .now + .seconds(1)
+        heldReleaseUntil = .now + .seconds(2)
         let location = event.location
         Task { [weak self] in
             await self?.bridge(clickAt: location, on: item)
@@ -436,14 +453,14 @@ final class MenuBarConcealer {
         // and Escape does that without lifting the hiding.
         if Self.openPanelWindow() != nil {
             Self.postEscape()
-            guard item.identifier != itemShowingPanel else {
+            if !item.identifier.isEmpty, item.identifier == itemShowingPanel {
                 itemShowingPanel = nil
                 return
             }
             try? await Task.sleep(for: .milliseconds(120))
         }
         // Control Center opens from a press while items are hidden.
-        if !itemsIgnoringPress.contains(item.identifier) {
+        if !item.identifier.isEmpty, !itemsIgnoringPress.contains(item.identifier) {
             let before = Self.windowNumbers()
             await Self.press(item.element)
             if await Self.waitForPanel(after: before) {
@@ -452,26 +469,55 @@ final class MenuBarConcealer {
             }
             itemsIgnoringPress.insert(item.identifier)
         }
-        await suspend(for: Self.clickLift)
-        Self.replayClick(at: location)
-        itemShowingPanel = item.identifier
+        await liftHidingForClick()
+        try? await Task.sleep(for: .milliseconds(35))
+        await Self.replayClick(at: location)
+        itemShowingPanel = item.identifier.isEmpty ? nil : item.identifier
+
+        // Keep hiding suspended while the system panel/menu is open.
+        panelWatchTask = Task { [weak self] in
+            for _ in 0..<12 {
+                guard !Task.isCancelled else {
+                    return
+                }
+                self?.suspendedUntil = .now + .milliseconds(600)
+                try? await Task.sleep(for: .milliseconds(50))
+                if Self.openPanelWindow() != nil {
+                    break
+                }
+            }
+            while !Task.isCancelled {
+                while !Task.isCancelled && Self.openPanelWindow() != nil {
+                    self?.suspendedUntil = .now + .milliseconds(500)
+                    try? await Task.sleep(for: .milliseconds(200))
+                }
+                try? await Task.sleep(for: .milliseconds(150))
+                if Self.openPanelWindow() == nil {
+                    break
+                }
+            }
+            guard !Task.isCancelled, let self else {
+                return
+            }
+            self.suspendedUntil = nil
+            self.itemShowingPanel = nil
+            self.update()
+        }
     }
 
-    /// Lifts the hiding for a moment and returns once it is really gone.
-    private func suspend(for duration: Duration) async {
-        suspendedUntil = .now + duration
+    /// Lifts the hiding around a bridged click while keeping the click tap active
+    /// to swallow the user's physical mouse-up.
+    private func liftHidingForClick() async {
+        panelWatchTask?.cancel()
+        panelWatchTask = nil
+        suspendedUntil = .now + .milliseconds(800)
         let previous = applyTask
         let release = Task { [weak self] in
             await previous?.value
-            self?.releaseAll()
+            self?.releaseAll(keepClickTap: true)
         }
         applyTask = release
         await release.value
-        Task { [weak self] in
-            try? await Task.sleep(for: duration)
-            self?.suspendedUntil = nil
-            self?.update()
-        }
     }
 
     /// The system item at a point (CoreGraphics coordinates), if any.
@@ -509,11 +555,14 @@ final class MenuBarConcealer {
     private static let panelOwners: Set<String> = [
         "com.apple.notificationcenterui",
         "com.apple.controlcenter",
+        "com.apple.systemuiserver",
+        "com.apple.TextInputMenuAgent",
+        "com.apple.Spotlight",
     ]
 
     /// An open system panel's window: at or above the menu bar's level, and
     /// taller than the bar (measured on macOS 27.0: Notification Center at
-    /// layer 21, Control Center at 101).
+    /// layer 21, Control Center at 101, Status menus/panels at layer 24/25).
     private static func openPanelWindow(excluding before: Set<Int> = []) -> Int? {
         let owners = Set(
             NSWorkspace.shared.runningApplications
@@ -527,10 +576,11 @@ final class MenuBarConcealer {
                 !before.contains(number),
                 let layer = window[kCGWindowLayer as String] as? Int,
                 layer >= 20,
+                (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
                 let owner = window[kCGWindowOwnerPID as String] as? pid_t,
                 owners.contains(owner),
                 let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
-                (bounds["Height"] ?? 0) > 150
+                (bounds["Height"] ?? 0) > 40
             else {
                 return nil
             }
@@ -570,8 +620,9 @@ final class MenuBarConcealer {
         }
     }
 
-    private static func replayClick(at location: CGPoint) {
+    private static func replayClick(at location: CGPoint) async {
         let source = CGEventSource(stateID: .hidSystemState)
+        source?.localEventsSuppressionInterval = 0
         for type in [CGEventType.leftMouseDown, .leftMouseUp] {
             guard let event = CGEvent(
                 mouseEventSource: source,
@@ -583,6 +634,9 @@ final class MenuBarConcealer {
             }
             event.setIntegerValueField(.eventSourceUserData, value: replayMarker)
             event.post(tap: .cghidEventTap)
+            if type == .leftMouseDown {
+                try? await Task.sleep(for: .milliseconds(15))
+            }
         }
     }
 }

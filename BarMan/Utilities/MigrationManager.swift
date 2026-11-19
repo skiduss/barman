@@ -274,7 +274,11 @@ extension MigrationManager {
 
     private func migrateAppearanceConfiguration0_11_10() -> MigrationResult {
         guard let oldData = Defaults.data(forKey: .menuBarAppearanceConfiguration) else {
-            return .failureAndLogError(.appearanceConfigurationMigrationError(.missingConfiguration))
+            // A fresh defaults domain has no legacy configuration to migrate.
+            // This is the normal state after the bundle identifier changed, so
+            // treat it as a no-op: returning a failure here would keep the
+            // migration flag unset and re-log the error on every launch.
+            return .success
         }
         do {
             let oldConfiguration = try decoder.decode(MenuBarAppearanceConfigurationV1.self, from: oldData)
@@ -464,14 +468,11 @@ extension MigrationManager {
 
     enum AppearanceConfigurationMigrationError: Error, CustomStringConvertible {
         case otherError(any Error)
-        case missingConfiguration
 
         var description: String {
             switch self {
             case .otherError(let error):
                 error.localizedDescription
-            case .missingConfiguration:
-                "Missing menu bar appearance configuration"
             }
         }
     }

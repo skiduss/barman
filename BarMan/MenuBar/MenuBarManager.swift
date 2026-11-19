@@ -458,9 +458,9 @@ final class MenuBarManager: ObservableObject {
             if previous != .showItems {
                 section.setState(.showItems, persist: false)
             }
-            // Dividers keep the user's style: a collapsed divider still has a
-            // position to drop next to, and drawing it would take room that
-            // pushes icons behind the notch on a crowded bar.
+            if section.controlItem.isSectionDivider {
+                section.controlItem.updateStatusItem(with: section.controlItem.state)
+            }
             restore[section.name] = (previous, section.stateRevision)
         }
         layoutEditingRestore = restore
@@ -477,15 +477,18 @@ final class MenuBarManager: ObservableObject {
         layoutEditingRestore.removeAll()
         // Dividers first, so the visible section's icon reflects the result.
         for name in [MenuBarSection.Name.alwaysHidden, .hidden, .visible] {
-            guard
-                let section = section(withName: name),
+            guard let section = section(withName: name) else {
+                continue
+            }
+            if
                 let entry = restore[name],
                 section.stateRevision == entry.revision,
                 section.controlItem.state != entry.state
-            else {
-                continue
+            {
+                section.setState(entry.state, persist: false)
+            } else if section.controlItem.isSectionDivider {
+                section.controlItem.updateStatusItem(with: section.controlItem.state)
             }
-            section.setState(entry.state, persist: false)
         }
         Logger.menuBarManager.info("Layout editing ended; restored section states")
     }
