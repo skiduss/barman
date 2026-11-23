@@ -71,12 +71,6 @@ final class MenuBarConcealer {
     /// Counts updates, so one overtaken by a later one is skipped.
     private var updateGeneration = 0
 
-    /// Hiding stays lifted until then, so a replayed click reaches a system item.
-    private var suspendedUntil: ContinuousClock.Instant?
-
-    /// Watches an opened system panel so concealment stays suspended while it is visible.
-    private var panelWatchTask: Task<Void, Never>?
-
     /// Fallback floating BarMan icon used when MenuBarAgent drops non-Developer-ID status items.
     private let fallbackIconOverlay = ConcealedBarManIconOverlay()
 
@@ -182,9 +176,6 @@ final class MenuBarConcealer {
         guard #available(macOS 27, *) else {
             return
         }
-        if let suspendedUntil, ContinuousClock.now < suspendedUntil {
-            return
-        }
         updateGeneration += 1
         let generation = updateGeneration
         let previous = applyTask
@@ -239,7 +230,6 @@ final class MenuBarConcealer {
                 AssessmentAssertion.invalidate(old.token)
             }
             live = (token, concealed, allowed)
-            clickTap.enable()
             fallbackIconOverlay.update(isConcealing: true, concealedBundleIDs: concealed)
             Logger.concealer.info("Hiding \(concealed.sorted())")
         } catch {
@@ -248,20 +238,12 @@ final class MenuBarConcealer {
     }
 
     /// Releases the live assertion, which brings every item back.
-    private func releaseAll(keepClickTap: Bool = false) {
+    private func releaseAll() {
         fallbackIconOverlay.update(isConcealing: false, concealedBundleIDs: [])
-        if !keepClickTap {
-            panelWatchTask?.cancel()
-            panelWatchTask = nil
-        }
         guard let old = live else {
             return
         }
         live = nil
-        let isHoldingRelease = heldReleaseUntil.map { ContinuousClock.now < $0 } ?? false
-        if !keepClickTap, !isHoldingRelease {
-            clickTap.disable()
-        }
         if #available(macOS 27, *) {
             AssessmentAssertion.invalidate(old.token)
         }
@@ -378,265 +360,6 @@ final class MenuBarConcealer {
         return NSScreen.screens.lazy.map(\.displayID).first { displayID in
             let bounds = CGDisplayBounds(displayID)
             return bounds.contains(center) && center.y < bounds.minY + 40
-        }
-    }
-
-    // MARK: Click Bridge
-
-    /// Marks the clicks BarMan replays, so the tap lets them through.
-    private static let replayMarker: Int64 = 0x1CE_27_C1C
-
-    /// System items that ignore an Accessibility press (measured on macOS
-    /// 27.0); others are pressed first, which needs no lift.
-    private var itemsIgnoringPress: Set<String> = [
-        "com.apple.menuextra.clock",
-        "com.apple.menuextra.battery",
-        "com.apple.menuextra.wifi",
-    ]
-
-    /// The system item whose panel a bridged click last opened.
-    private var itemShowingPanel: String?
-
-    /// The release of a held-back press is held back with it until then.
-    private var heldReleaseUntil: ContinuousClock.Instant?
-
-    /// Holds back clicks on system items while anything is hidden.
-    private lazy var clickTap = EventTap(
-        label: "Concealer click bridge",
-        options: .defaultTap,
-        location: .hidEventTap,
-        place: .headInsertEventTap,
-        types: [.leftMouseDown, .leftMouseUp]
-    ) { [weak self] proxy, type, event in
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            proxy.enable()
-            return event
-        }
-        return self?.handleClick(type: type, event: event) ?? event
-    }
-
-    private func handleClick(type: CGEventType, event: CGEvent) -> CGEvent? {
-        guard event.getIntegerValueField(.eventSourceUserData) != Self.replayMarker else {
-            return event
-        }
-        if type == .leftMouseUp {
-            guard let until = heldReleaseUntil, ContinuousClock.now < until else {
-                heldReleaseUntil = nil
-                if !isConcealing && suspendedUntil == nil {
-                    clickTap.disable()
-                }
-                return event
-            }
-            heldReleaseUntil = nil
-            if !isConcealing && suspendedUntil == nil {
-                clickTap.disable()
-            }
-            return nil
-        }
-        guard
-            isConcealing,
-            let item = Self.systemItem(at: event.location)
-        else {
-            return event
-        }
-        heldReleaseUntil = .now + .seconds(2)
-        let location = event.location
-        Task { [weak self] in
-            await self?.bridge(clickAt: location, on: item)
-        }
-        return nil
-    }
-
-    /// Gets a held-back click to a system item.
-    private func bridge(clickAt location: CGPoint, on item: (element: AXUIElement, identifier: String)) async {
-        // A click while a system panel is up is the click that closes it,
-        // and Escape does that without lifting the hiding.
-        if Self.openPanelWindow() != nil {
-            Self.postEscape()
-            if !item.identifier.isEmpty, item.identifier == itemShowingPanel {
-                itemShowingPanel = nil
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(120))
-        }
-        // Control Center opens from a press while items are hidden.
-        if !item.identifier.isEmpty, !itemsIgnoringPress.contains(item.identifier) {
-            let before = Self.windowNumbers()
-            await Self.press(item.element)
-            if await Self.waitForPanel(after: before) {
-                itemShowingPanel = item.identifier
-                return
-            }
-            itemsIgnoringPress.insert(item.identifier)
-        }
-        await liftHidingForClick()
-        try? await Task.sleep(for: .milliseconds(35))
-        await Self.replayClick(at: location)
-        itemShowingPanel = item.identifier.isEmpty ? nil : item.identifier
-
-        // Keep hiding suspended while the system panel/menu is open.
-        panelWatchTask = Task { [weak self] in
-            for _ in 0..<12 {
-                guard !Task.isCancelled else {
-                    return
-                }
-                self?.suspendedUntil = .now + .milliseconds(600)
-                try? await Task.sleep(for: .milliseconds(50))
-                if Self.openPanelWindow() != nil {
-                    break
-                }
-            }
-            while !Task.isCancelled {
-                while !Task.isCancelled && Self.openPanelWindow() != nil {
-                    self?.suspendedUntil = .now + .milliseconds(500)
-                    try? await Task.sleep(for: .milliseconds(200))
-                }
-                try? await Task.sleep(for: .milliseconds(150))
-                if Self.openPanelWindow() == nil {
-                    break
-                }
-            }
-            guard !Task.isCancelled, let self else {
-                return
-            }
-            self.suspendedUntil = nil
-            self.itemShowingPanel = nil
-            self.update()
-        }
-    }
-
-    /// Lifts the hiding around a bridged click while keeping the click tap active
-    /// to swallow the user's physical mouse-up.
-    private func liftHidingForClick() async {
-        panelWatchTask?.cancel()
-        panelWatchTask = nil
-        suspendedUntil = .now + .milliseconds(800)
-        let previous = applyTask
-        let release = Task { [weak self] in
-            await previous?.value
-            self?.releaseAll(keepClickTap: true)
-        }
-        applyTask = release
-        await release.value
-    }
-
-    /// The system item at a point (CoreGraphics coordinates), if any.
-    ///
-    /// Asks Accessibility what is there rather than using cached frames:
-    /// unlike other apps' items, MenuBarAgent reports the right element on
-    /// every display.
-    private static func systemItem(at point: CGPoint) -> (element: AXUIElement, identifier: String)? {
-        guard
-            let bounds = NSScreen.screens.lazy.map({ CGDisplayBounds($0.displayID) }).first(where: { $0.contains(point) }),
-            point.y < bounds.minY + 40
-        else {
-            return nil
-        }
-        let systemWide = AXUIElementCreateSystemWide()
-        AXUIElementSetMessagingTimeout(systemWide, 0.25)
-        var element: AXUIElement?
-        guard
-            AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element) == .success,
-            let element
-        else {
-            return nil
-        }
-        var pid: pid_t = 0
-        AXUIElementGetPid(element, &pid)
-        guard NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "com.apple.MenuBarAgent" else {
-            return nil
-        }
-        var identifier: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, "AXIdentifier" as CFString, &identifier)
-        return (element, identifier as? String ?? "")
-    }
-
-    /// The processes that draw the system items' panels.
-    private static let panelOwners: Set<String> = [
-        "com.apple.notificationcenterui",
-        "com.apple.controlcenter",
-        "com.apple.systemuiserver",
-        "com.apple.TextInputMenuAgent",
-        "com.apple.Spotlight",
-    ]
-
-    /// An open system panel's window: at or above the menu bar's level, and
-    /// taller than the bar (measured on macOS 27.0: Notification Center at
-    /// layer 21, Control Center at 101, Status menus/panels at layer 24/25).
-    private static func openPanelWindow(excluding before: Set<Int> = []) -> Int? {
-        let owners = Set(
-            NSWorkspace.shared.runningApplications
-                .filter { panelOwners.contains($0.bundleIdentifier ?? "") }
-                .map(\.processIdentifier)
-        )
-        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-        return windows.lazy.compactMap { window -> Int? in
-            guard
-                let number = window[kCGWindowNumber as String] as? Int,
-                !before.contains(number),
-                let layer = window[kCGWindowLayer as String] as? Int,
-                layer >= 20,
-                (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
-                let owner = window[kCGWindowOwnerPID as String] as? pid_t,
-                owners.contains(owner),
-                let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
-                (bounds["Height"] ?? 0) > 40
-            else {
-                return nil
-            }
-            return number
-        }.first
-    }
-
-    private static func windowNumbers() -> Set<Int> {
-        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-        return Set(windows.compactMap { $0[kCGWindowNumber as String] as? Int })
-    }
-
-    private static func waitForPanel(after before: Set<Int>) async -> Bool {
-        for _ in 0..<5 {
-            try? await Task.sleep(for: .milliseconds(50))
-            if openPanelWindow(excluding: before) != nil {
-                return true
-            }
-        }
-        return false
-    }
-
-    /// Presses an element off the main thread, which the call can block.
-    private static func press(_ element: AXUIElement) async {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                _ = AXUIElementPerformAction(element, kAXPressAction as CFString)
-                continuation.resume()
-            }
-        }
-    }
-
-    private static func postEscape() {
-        let source = CGEventSource(stateID: .hidSystemState)
-        for down in [true, false] {
-            CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: down)?.post(tap: .cghidEventTap)
-        }
-    }
-
-    private static func replayClick(at location: CGPoint) async {
-        let source = CGEventSource(stateID: .hidSystemState)
-        source?.localEventsSuppressionInterval = 0
-        for type in [CGEventType.leftMouseDown, .leftMouseUp] {
-            guard let event = CGEvent(
-                mouseEventSource: source,
-                mouseType: type,
-                mouseCursorPosition: location,
-                mouseButton: .left
-            ) else {
-                continue
-            }
-            event.setIntegerValueField(.eventSourceUserData, value: replayMarker)
-            event.post(tap: .cghidEventTap)
-            if type == .leftMouseDown {
-                try? await Task.sleep(for: .milliseconds(15))
-            }
         }
     }
 }
